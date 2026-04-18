@@ -1,0 +1,187 @@
+1@startuml petfeed_erd
+
+title ERD — PetFeed v1.0
+
+' ── ПОЛЬЗОВАТЕЛИ ─────────────────────────────────────────────────
+entity "users" as users {
+  * id : int [PK]
+  --
+  * telegram_id : bigint [UK]
+  * username : varchar(255) [NULL]
+  * is_active : boolean
+  * ai_requests_today : int
+  * ai_requests_reset_at : timestamp
+  --
+  * created_at : timestamp
+  * updated_at : timestamp
+}
+
+' ── ПИТОМЦЫ ──────────────────────────────────────────────────────
+entity "pets" as pets {
+  * id : int [PK]
+  --
+  * name : varchar(100)
+  * species : varchar(50)
+  * breed : varchar(100) [NULL]
+  * age_months : int
+  * weight_kg : decimal(5,2)
+  * goal : varchar(50)
+  * is_active : boolean
+  --
+  * owner_id : int [FK → users.id]
+  --
+  * created_at : timestamp
+  * updated_at : timestamp
+}
+
+' ── ИСТОРИЯ ВЕСА ─────────────────────────────────────────────────
+entity "weight_history" as weight_history {
+  * id : int [PK]
+  --
+  * weight_kg : decimal(5,2)
+  * recorded_at : date
+  --
+  * pet_id : int [FK → pets.id]
+  --
+  * created_at : timestamp
+}
+
+' ── РАЦИОНЫ ──────────────────────────────────────────────────────
+entity "rations" as rations {
+  * id : int [PK]
+  --
+  * daily_calories : int
+  * portion_grams : int
+  * feedings_per_day : int
+  * goal : varchar(50)
+  * notes : text [NULL]
+  --
+  * pet_id : int [FK → pets.id]
+  --
+  * created_at : timestamp
+  * updated_at : timestamp
+}
+
+' ── БАЗА ЗНАНИЙ О ПИТАНИИ ────────────────────────────────────────
+entity "nutrition_knowledge" as nutrition_knowledge {
+  * id : int [PK]
+  --
+  * species : varchar(50)
+  * breed : varchar(100) [NULL]
+  * product_name : varchar(255)
+  * is_allowed : boolean
+  * danger_level : varchar(20) [NULL]
+  * reason : text
+  * source_url : varchar(500) [NULL]
+  --
+  * created_at : timestamp
+  * updated_at : timestamp
+}
+
+' ── НАПОМИНАНИЯ О КОРМЛЕНИИ ──────────────────────────────────────
+entity "feeding_reminders" as feeding_reminders {
+  * id : int [PK]
+  --
+  * reminder_time : time
+  * timezone : varchar(50)
+  * is_active : boolean
+  --
+  * pet_id : int [FK → pets.id]
+  --
+  * created_at : timestamp
+  * updated_at : timestamp
+}
+
+' ── ЖУРНАЛ КОРМЛЕНИЙ ─────────────────────────────────────────────
+entity "feeding_logs" as feeding_logs {
+  * id : int [PK]
+  --
+  * fed_at : timestamp
+  * notes : text [NULL]
+  --
+  * pet_id : int [FK → pets.id]
+  * reminder_id : int [FK → feeding_reminders.id, NULL]
+  --
+  * created_at : timestamp
+}
+
+' ── ПАРТНЁРЫ ─────────────────────────────────────────────────────
+entity "partners" as partners {
+  * id : int [PK]
+  --
+  * name : varchar(255)
+  * website_url : varchar(500)
+  * api_url : varchar(500)
+  * api_key_hash : varchar(255)
+  * commission_pct : decimal(5,2)
+  * is_active : boolean
+  --
+  * created_at : timestamp
+  * updated_at : timestamp
+}
+
+' ── ТОВАРЫ ПАРТНЁРОВ ─────────────────────────────────────────────
+entity "products" as products {
+  * id : int [PK]
+  --
+  * name : varchar(255)
+  * species : varchar(50)
+  * brand : varchar(100)
+  * weight_grams : int
+  * price : decimal(10,2)
+  * is_available : boolean
+  * external_id : varchar(255)
+  --
+  * partner_id : int [FK → partners.id]
+  --
+  * created_at : timestamp
+  * updated_at : timestamp
+}
+
+' ── ЗАКАЗЫ ───────────────────────────────────────────────────────
+entity "orders" as orders {
+  * id : int [PK]
+  --
+  * referral_token : varchar(255) [UK]
+  * status : varchar(50)
+  * commission_amount : decimal(10,2) [NULL]
+  --
+  * user_id : int [FK → users.id]
+  * pet_id : int [FK → pets.id]
+  * product_id : int [FK → products.id]
+  * partner_id : int [FK → partners.id]
+  --
+  * created_at : timestamp
+  * confirmed_at : timestamp [NULL]
+}
+
+' ── AI ЗАПРОСЫ ───────────────────────────────────────────────────
+entity "ai_requests" as ai_requests {
+  * id : int [PK]
+  --
+  * question : text
+  * answer : text
+  * is_cached : boolean
+  --
+  * user_id : int [FK → users.id]
+  * pet_id : int [FK → pets.id]
+  --
+  * created_at : timestamp
+}
+
+' ── СВЯЗИ ────────────────────────────────────────────────────────
+users ||--o{ pets : "владеет"
+pets ||--o{ weight_history : "имеет историю веса"
+pets ||--o{ rations : "имеет рацион"
+pets ||--o{ feeding_reminders : "имеет напоминания"
+pets ||--o{ feeding_logs : "имеет журнал кормлений"
+feeding_reminders ||--o{ feeding_logs : "триггерит"
+pets ||--o{ ai_requests : "связан с вопросами"
+users ||--o{ ai_requests : "задаёт вопросы"
+users ||--o{ orders : "оформляет"
+pets ||--o{ orders : "привязан к заказу"
+partners ||--o{ products : "предоставляет"
+products ||--o{ orders : "входит в заказ"
+partners ||--o{ orders : "обрабатывает"
+
+@enduml

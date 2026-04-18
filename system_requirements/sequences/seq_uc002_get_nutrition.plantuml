@@ -1,0 +1,79 @@
+@startuml seq_uc002_get_nutrition
+autonumber "<b><color:DarkSlateBlue>.</color></b> "
+
+actor       "Владелец питомца"  as User
+participant "Telegram"          as TG
+participant "Telegram Bot"      as Bot
+participant "Backend API"       as API
+database    "PostgreSQL"        as DB
+database    "Redis"             as Redis
+
+== Инициация ==
+User -> TG  : Нажимает "Рацион питания"
+TG   -> Bot : Webhook: callback_query {data: "menu:nutrition"}
+
+== Проверка feature flag ==
+Bot -> API  : REST GET /nutrition/{pet_id}/ration\nX-Telegram-Id: {telegram_id}
+API -> Redis : GET ff:feature_nutrition
+Redis --> API : "1" (включён)
+
+== Загрузка данных питомца ==
+API -> DB   : SELECT * FROM pets WHERE id = :pet_id AND owner_id = :user_id
+
+alt Питомец не найден
+    DB  --> API : NULL
+    API --> Bot : 404 Not Found
+    Bot -> TG  : "Сначала создай профиль питомца"
+    TG --> User : Профиль не найден
+    return
+else Питомец найден
+    DB  --> API : pet {species: "cat", breed: "Мейн-кун", age_months: 24, weight_kg: 5.2, goal: "maintain"}
+end
+
+== Проверка кэша ==
+API -> Redis : GET ration:{pet_id}
+
+alt Кэш найден
+    Redis --> API : {ration, allowed_foods, stop_list}
+    API --> Bot  : 200 OK {ration, data_source: "cache"}
+else Кэш не найден
+    Redis --> API : NULL
+
+    == Расчёт рациона ==
+    API -> API  : RER = 70 * (5.2 ^ 0.75) = 219 ккал\nКоэф. maintain = 1.0\ndaily_calories = 219\nfeedings_per_day = 2 (взрослая кошка)\nportion_grams = 219 / 2 / 4 = 27г
+
+    == Получение базы знаний ==
+    API -> DB   : SELECT product_name FROM nutrition_knowledge\nWHERE species = "cat" AND is_allowed = TRUE
+    DB  --> API : ["Куриная грудка", "Индейка", "Рис", ...]
+
+    API -> DB   : SELECT product_name, danger_level, reason\nFROM nutrition_knowledge\nWHERE species = "cat" AND is_allowed = FALSE
+    DB  --> API : [{Лук, dangerous}, {Шоколад, fatal}, ...]
+
+    opt Данных нет для редкого вида/породы
+        API -> API : Установить флаг data_source = "basic"
+    end
+
+    == Проверка критического веса ==
+    API -> API  : Норма для кошки: 3–8 кг\n5.2 кг — в норме, weight_warning = false
+
+    == Сохранение рациона ==
+    API -> DB   : INSERT INTO rations (...)\nON CONFLICT (pet_id) DO UPDATE SET ...
+    DB  --> API : OK
+
+    API -> Redis : SET ration:{pet_id} {racion_data} TTL 86400
+    Redis --> API : OK
+    API --> Bot  : 200 OK {ration, allowed_foods, stop_list, weight_warning: false}
+end
+
+== Выбор цели кормления ==
+Bot -> TG  : Выбери цель:\n[Поддержание веса][Похудение][Набор веса]
+TG --> User : Выбери цель кормления
+
+User -> TG  : "Поддержание веса"
+TG   -> Bot : callback_query {data: "goal:maintain"}
+
+== Возврат результата ==
+Bot -> TG  : Рацион Барсика:\n📊 219 ккал/день\n🍽 2 раза по 27г\n\n✅ Можно: Курица, Индейка...\n🚫 Нельзя: Лук, Шоколад...\n\n[Заказать корм][Настроить напоминания][Задать вопрос]
+TG --> User : Персональный рацион готов
+
+@enduml

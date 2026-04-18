@@ -1,0 +1,89 @@
+@startuml seq_uc007_ai_assistant
+autonumber "<b><color:DarkSlateBlue>.</color></b> "
+
+actor       "Владелец питомца"  as User
+participant "Telegram"          as TG
+participant "Telegram Bot"      as Bot
+participant "Backend API"       as API
+database    "PostgreSQL"        as DB
+database    "Redis"             as Redis
+participant "DeepSeek API"      as DS
+
+== Инициация ==
+User -> TG  : Пишет вопрос: "Можно ли кормить мейн-куна сырой рыбой?"
+TG   -> Bot : Webhook: {message: {text: "Можно ли кормить..."}}
+Bot  -> API : REST POST /ai/ask\nX-Telegram-Id: {telegram_id}\n{pet_id: 1, question: "Можно ли..."}
+
+== Проверка feature flag ==
+API -> Redis : GET ff:feature_ai_assistant
+Redis --> API : "1" (включён)
+
+== Проверка лимита запросов ==
+API -> DB   : SELECT ai_requests_today, ai_requests_reset_at\nFROM users WHERE id = :user_id
+DB  --> API : {ai_requests_today: 3, reset_at: "2026-04-18T00:00:00"}
+
+alt Лимит исчерпан (>= 10 запросов)
+    API --> Bot : 429 Too Many Requests\n{reset_at: "2026-04-19T00:00:00", requests_remaining: 0}
+    Bot -> TG  : "Дневной лимит вопросов исчерпан (10/10).\nПодключи Premium для безлимитных вопросов\n[Подробнее о Premium]"
+    TG --> User : Лимит исчерпан
+    return
+else Лимит не исчерпан
+    API -> API : requests_remaining = 10 - 3 = 7
+end
+
+== Валидация вопроса ==
+API -> API  : len(question) = 47, допустимо (5–1000)
+
+alt Вопрос слишком короткий (< 5 символов)
+    API --> Bot : 400 Bad Request {error: "question_too_short"}
+    Bot -> TG  : "Вопрос слишком короткий. Опиши подробнее"
+    TG --> User : Уточни вопрос
+    return
+end
+
+== Загрузка профиля питомца ==
+API -> DB   : SELECT species, breed, age_months, weight_kg, goal\nFROM pets WHERE id = 1 AND owner_id = :user_id
+DB  --> API : {species: "cat", breed: "Мейн-кун", age_months: 24, weight_kg: 5.2}
+
+== Проверка кэша ==
+API -> API  : cache_key = md5("cat:Мейн-кун:Можно ли кормить мейн-куна сырой рыбой?")
+API -> Redis : GET ai:{cache_key}
+
+alt Ответ в кэше
+    Redis --> API : {answer: "Сырая рыба не рекомендована..."}
+    API -> DB   : INSERT INTO ai_requests (..., is_cached: TRUE)
+    API -> DB   : UPDATE users SET ai_requests_today = 4
+    API --> Bot : 200 OK {answer, is_cached: true, requests_remaining: 6}
+else Кэша нет
+    Redis --> API : NULL
+
+    == Запрос к DeepSeek API ==
+    API -> DS   : POST /v1/chat/completions\n{\n  model: "deepseek-chat",\n  messages: [\n    {role: "system", content: "Ты эксперт по питанию домашних животных..."},\n    {role: "user", content: "Питомец: кошка, порода Мейн-кун,\nвозраст 24 мес, вес 5.2кг.\nВопрос: Можно ли кормить мейн-куна сырой рыбой?"}\n  ]\n}
+
+    alt DeepSeek API недоступен (timeout > 15 сек)
+        DS  --> API : Connection timeout
+        API -> Redis : KEYS ai:* — поиск похожих вопросов
+        Redis --> API : NULL (похожих нет)
+        API --> Bot  : 503 Service Unavailable\n{error: "ai_unavailable"}
+        Bot -> TG   : "AI-ассистент временно недоступен.\nПопробуй позже или загляни в раздел Питание"
+        TG  --> User : Ошибка AI
+        return
+    else DeepSeek ответил
+        DS  --> API : 200 OK\n{choices: [{message: {content: "Сырая рыба не рекомендована для кошек..."}}]}
+    end
+
+    == Сохранение и кэширование ==
+    API -> Redis : SET ai:{cache_key} {answer} TTL 86400
+    Redis --> API : OK
+    API -> DB   : INSERT INTO ai_requests\n(user_id, pet_id, question, answer, is_cached: FALSE)
+    DB  --> API : OK
+    API -> DB   : UPDATE users SET ai_requests_today = 4
+    DB  --> API : OK
+    API --> Bot : 200 OK {answer, is_cached: false, requests_remaining: 6}
+end
+
+== Возврат результата ==
+Bot -> TG  : AI-ответ:\n"Сырая рыба не рекомендована для кошек..."\n\n⚠️ Не является ветеринарной консультацией\nОсталось вопросов сегодня: 6/10\n\n[Обновить рацион][Проверить стоп-лист]
+TG --> User : Ответ AI-ассистента
+
+@enduml

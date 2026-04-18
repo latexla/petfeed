@@ -1,0 +1,93 @@
+@startuml seq_uc003_reminders
+autonumber "<b><color:DarkSlateBlue>.</color></b> "
+
+actor       "Владелец питомца"  as User
+participant "Telegram"          as TG
+participant "Telegram Bot"      as Bot
+participant "Backend API"       as API
+participant "APScheduler"       as Scheduler
+database    "PostgreSQL"        as DB
+
+== Настройка напоминаний ==
+User -> TG  : Нажимает "Настроить напоминания"
+TG   -> Bot : Webhook: callback_query {data: "menu:reminders"}
+Bot  -> API : REST GET /pets/{pet_id}/reminders\nX-Telegram-Id: {telegram_id}
+API  -> DB  : SELECT feedings_per_day FROM rations WHERE pet_id = :pet_id
+DB   --> API : {feedings_per_day: 2}
+API  --> Bot : 200 OK {suggested_times: ["08:00", "18:00"]}
+Bot  -> TG  : Рекомендуемое расписание: 08:00 и 18:00\n[Принять][Настроить вручную]
+TG  --> User : Выбери расписание
+
+alt Пользователь принимает предложенное
+    User -> TG  : "Принять"
+    TG   -> Bot : callback_query {data: "reminders:accept"}
+    Bot  -> Bot : reminder_times = ["08:00", "18:00"]
+else Пользователь настраивает вручную
+    User -> TG  : "Настроить вручную"
+    TG   -> Bot : callback_query {data: "reminders:manual"}
+    Bot  -> TG  : Введи время первого кормления (HH:MM)
+    TG  --> User : Введи время...
+
+    User -> TG  : "07:30"
+    TG   -> Bot : Webhook: {message: {text: "07:30"}}
+
+    alt Некорректный формат времени
+        Bot -> TG  : "Неверный формат. Введи время как 07:30"
+        TG --> User : Ошибка формата
+    else Корректный формат
+        Bot -> TG  : Добавить ещё напоминание? [Да][Нет]
+        TG --> User : Ещё напоминание?
+    end
+
+    User -> TG  : "Нет"
+    TG   -> Bot : callback_query {data: "reminders:done"}
+    Bot  -> Bot : reminder_times = ["07:30"]
+end
+
+Bot -> TG  : В каком часовом поясе ты находишься?\n[Москва (UTC+3)][Другой]
+TG --> User : Выбери часовой пояс
+
+User -> TG  : "Москва (UTC+3)"
+TG   -> Bot : callback_query {data: "tz:Europe/Moscow"}
+
+== Сохранение расписания ==
+Bot -> API  : REST POST /pets/{pet_id}/reminders\nX-Telegram-Id: {telegram_id}\n{reminder_times: ["08:00","18:00"], timezone: "Europe/Moscow"}
+
+alt Более 6 напоминаний
+    API --> Bot : 400 Bad Request {error: "too_many_reminders", max: 6}
+    Bot -> TG  : "Максимум 6 напоминаний в сутки"
+    TG --> User : Уточни расписание
+else Корректное расписание
+    API -> DB  : DELETE FROM feeding_reminders WHERE pet_id = :pet_id
+    DB  --> API : OK
+    API -> DB  : INSERT INTO feeding_reminders\n(pet_id, reminder_time, timezone)\nVALUES (1, "08:00", "Europe/Moscow"),\n       (1, "18:00", "Europe/Moscow")
+    DB  --> API : [{id:1}, {id:2}]
+    API -> Scheduler : add_job(send_reminder, cron,\nhour=8, minute=0, tz="Europe/Moscow",\nargs=[telegram_id, pet_id, reminder_id=1])
+    API -> Scheduler : add_job(send_reminder, cron,\nhour=18, minute=0, tz="Europe/Moscow",\nargs=[telegram_id, pet_id, reminder_id=2])
+    Scheduler --> API : jobs registered
+    API --> Bot : 201 Created {reminders: [{id:1, time:"08:00"}, {id:2, time:"18:00"}]}
+end
+
+Bot -> TG  : Напоминания настроены:\n⏰ 08:00 и 18:00 по Москве\n[Изменить][Выключить]
+TG --> User : Напоминания активны
+
+== Срабатывание напоминания (runtime) ==
+Scheduler -> API : Cron trigger: GET /pets/{pet_id}/reminders\n(получить активные на текущее время)
+API -> DB  : SELECT r.*, p.name FROM feeding_reminders r\nJOIN pets p ON p.id = r.pet_id\nWHERE r.is_active = TRUE AND r.reminder_time = NOW()::time
+DB  --> API : [{pet_name: "Барсик", telegram_id: 123456789}]
+API -> Bot  : Trigger send_reminder(telegram_id, "Барсик")
+Bot -> TG   : sendMessage(123456789):\n"🍽 Время кормить Барсика!\n[Отметить покормлен][Пропустить]"
+TG --> User : Push-уведомление о кормлении
+
+opt Пользователь отмечает кормление
+    User -> TG  : "Отметить покормлен"
+    TG   -> Bot : callback_query {data: "fed:pet_id:1:reminder_id:1"}
+    Bot  -> API : REST POST /pets/1/feeding-log\n{reminder_id: 1}
+    API  -> DB  : INSERT INTO feeding_logs (pet_id, reminder_id, fed_at = NOW())
+    DB   --> API : OK
+    API  --> Bot : 201 Created
+    Bot  -> TG  : "Барсик покормлен! 🐱"
+    TG  --> User : Готово
+end
+
+@enduml

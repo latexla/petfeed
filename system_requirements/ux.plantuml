@@ -1,0 +1,88 @@
+@startuml screen_map
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 9
+skinparam ArrowColor #555
+skinparam rectangleBorderColor #999
+
+title Карта экранов — PetFeed Bot
+
+rectangle "SCR-01\nСтарт / Приветствие" as S01
+rectangle "SCR-02\nВыбор вида животного" as S02
+rectangle "SCR-03\nВвод породы" as S03
+rectangle "SCR-04\nВвод имени" as S04
+rectangle "SCR-05\nВвод возраста" as S05
+rectangle "SCR-06\nВвод веса" as S06
+rectangle "SCR-07\nПодтверждение профиля" as S07
+rectangle "SCR-08\nГлавное меню" as S08
+
+rectangle "SCR-09\nВыбор цели кормления" as S09
+rectangle "SCR-10\nРацион питания" as S10
+rectangle "SCR-11\nСтоп-лист продуктов" as S11
+rectangle "SCR-12\nПоиск продукта" as S12
+
+rectangle "SCR-13\nНастройка напоминаний" as S13
+rectangle "SCR-14\nВвод времени вручную" as S14
+rectangle "SCR-15\nВыбор таймзоны" as S15
+rectangle "SCR-16\nНапоминания активны" as S16
+rectangle "SCR-17\nPush: время кормить" as S17
+
+rectangle "SCR-18\nОбновление веса" as S18
+rectangle "SCR-19\nДинамика веса" as S19
+
+rectangle "SCR-20\nСписок кормов партнёра" as S20
+rectangle "SCR-21\nДетали товара" as S21
+rectangle "SCR-22\nПереход к партнёру" as S22
+
+rectangle "SCR-23\nAI-ассистент (вопрос)" as S23
+rectangle "SCR-24\nAI-ассистент (ответ)" as S24
+
+rectangle "SCR-25\nПрофиль питомца" as S25
+
+S01 --> S02 : нет профиля
+S01 --> S08 : профиль есть
+S02 --> S03
+S03 --> S04
+S04 --> S05
+S05 --> S06
+S06 --> S07
+S07 --> S08 : Сохранить
+S07 --> S02 : Изменить
+
+S08 --> S09 : 🍽 Рацион
+S08 --> S11 : 🚫 Стоп-лист
+S08 --> S13 : ⏰ Напоминания
+S08 --> S18 : 📊 Обновить вес
+S08 --> S20 : 🛒 Заказать корм
+S08 --> S23 : 🤖 AI вопрос
+S08 --> S25 : 🐾 Питомец
+
+S09 --> S10
+S10 --> S11 : Стоп-лист
+S10 --> S20 : Заказать корм
+S10 --> S23 : Задать вопрос
+S11 --> S12 : Проверить продукт
+S12 --> S11 : Назад
+
+S13 --> S15 : Принять
+S13 --> S14 : Вручную
+S14 --> S15
+S15 --> S16
+S16 --> S08
+S17 --> S08 : Отметить / Пропустить
+
+S18 --> S19
+S19 --> S08
+
+S20 --> S21
+S21 --> S22 : Перейти к заказу
+S21 --> S20 : Назад
+S22 --> S08
+
+S23 --> S24
+S24 --> S10 : Обновить рацион
+S24 --> S11 : Стоп-лист
+S24 --> S08 : В меню
+
+S25 --> S08 : Назад
+
+@enduml

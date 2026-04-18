@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/latex/.claude/skills/solution-architect/**)",
+      "Read(//home/latex/.claude/skills/system-analyst/**)",
+      "Read(//home/latex/.claude/skills/system-analyst/references/**)"
+    ]
+  }
+}

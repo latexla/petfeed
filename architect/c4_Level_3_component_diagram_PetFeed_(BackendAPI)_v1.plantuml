@@ -1,0 +1,89 @@
+@startuml
+!include <C4/C4_Component>
+
+Title Компонентная диаграмма — PetFeed Backend API v1.0
+
+' ── Внешние контейнеры ───────────────────────────────────────────
+Container_Ext(bot, "Telegram Bot", "aiogram 3", "Отправляет запросы от пользователя")
+Container_Ext(admin_panel, "Admin Panel", "FastAPI + Jinja2", "Управление контентом")
+Container_Ext(scheduler, "Scheduler", "APScheduler", "Триггерит напоминания")
+ContainerDb(main_db, "Main Database", "PostgreSQL", "Основное хранилище данных")
+ContainerDb(cache, "Cache", "Redis", "Кэш и сессии")
+System_Ext(deepseek, "DeepSeek API", "LLM для AI-ассистента")
+System_Ext(partner_shop, "Системы зоомагазинов", "Каталог и заказы")
+
+' ── Backend API ───────────────────────────────────────────────────
+System_Boundary(api, "Backend API (FastAPI)") {
+
+    ' API Layer
+    Boundary(api_layer, "API Layer") {
+        Component(pet_router, "Pet Router", "FastAPI Router", "Эндпоинты: создание и редактирование профиля питомца")
+        Component(nutrition_router, "Nutrition Router", "FastAPI Router", "Эндпоинты: получение рациона, стоп-лист, расчёт порций")
+        Component(reminder_router, "Reminder Router", "FastAPI Router", "Эндпоинты: управление расписанием кормлений")
+        Component(order_router, "Order Router", "FastAPI Router", "Эндпоинты: заказ корма, история, реферальные ссылки")
+        Component(ai_router, "AI Router", "FastAPI Router", "Эндпоинты: вопросы AI-ассистенту")
+        Component(partner_router, "Partner Router", "FastAPI Router", "Эндпоинты: webhook от партнёров, каталог")
+        Component(admin_router, "Admin Router", "FastAPI Router", "Эндпоинты: управление базой знаний и партнёрами")
+    }
+
+    ' Service Layer
+    Boundary(service_layer, "Service Layer") {
+        Component(pet_service, "Pet Service", "Python class", "Бизнес-логика профилей питомцев, валидация данных")
+        Component(nutrition_service, "Nutrition Service", "Python class", "Расчёт рациона, норм калорий, стоп-листа по виду и породе")
+        Component(reminder_service, "Reminder Service", "Python class", "Управление расписанием, создание/удаление задач")
+        Component(order_service, "Order Service", "Python class", "Формирование реферальных ссылок, фиксация заказов, комиссия")
+        Component(ai_service, "AI Service", "Python class", "Формирование промпта с контекстом питомца, вызов DeepSeek API")
+        Component(partner_service, "Partner Service", "Python class", "Интеграция с каталогами, обработка webhook")
+    }
+
+    ' Data Layer
+    Boundary(data_layer, "Data Layer") {
+        Component(pet_repo, "Pet Repository", "SQLAlchemy", "CRUD операции с профилями питомцев")
+        Component(nutrition_repo, "Nutrition Repository", "SQLAlchemy", "Чтение базы знаний о питании по видам животных")
+        Component(reminder_repo, "Reminder Repository", "SQLAlchemy", "Хранение и выборка расписаний кормлений")
+        Component(order_repo, "Order Repository", "SQLAlchemy", "История заказов, реферальные сессии")
+        Component(cache_client, "Cache Client", "redis-py", "Кэш AI-ответов, счётчики запросов, временные данные")
+    }
+}
+
+' ── Связи: API Layer → Service Layer ─────────────────────────────
+Rel(pet_router, pet_service, "вызывает")
+Rel(nutrition_router, nutrition_service, "вызывает")
+Rel(reminder_router, reminder_service, "вызывает")
+Rel(order_router, order_service, "вызывает")
+Rel(ai_router, ai_service, "вызывает")
+Rel(partner_router, partner_service, "вызывает")
+Rel(admin_router, nutrition_service, "вызывает")
+Rel(admin_router, partner_service, "вызывает")
+
+' ── Связи: Service Layer → Data Layer ────────────────────────────
+Rel(pet_service, pet_repo, "использует")
+Rel(nutrition_service, nutrition_repo, "читает")
+Rel(reminder_service, reminder_repo, "использует")
+Rel(order_service, order_repo, "использует")
+Rel(ai_service, cache_client, "кэширует ответы и счётчики")
+Rel(partner_service, order_repo, "фиксирует заказы")
+
+' ── Связи: Data Layer → хранилища ────────────────────────────────
+Rel(pet_repo, main_db, "читает / пишет", "SQL")
+Rel(nutrition_repo, main_db, "читает", "SQL")
+Rel(reminder_repo, main_db, "читает / пишет", "SQL")
+Rel(order_repo, main_db, "читает / пишет", "SQL")
+Rel(cache_client, cache, "читает / пишет", "Redis protocol")
+
+' ── Связи: внешние контейнеры → API Layer ────────────────────────
+Rel(bot, pet_router, "создать / обновить питомца", "REST")
+Rel(bot, nutrition_router, "получить рацион", "REST")
+Rel(bot, reminder_router, "управление напоминаниями", "REST")
+Rel(bot, order_router, "заказать корм", "REST")
+Rel(bot, ai_router, "задать вопрос", "REST")
+Rel(scheduler, reminder_router, "запросить активные напоминания", "REST")
+Rel(admin_panel, admin_router, "управление контентом", "REST")
+Rel(partner_shop, partner_router, "webhook о заказе", "HTTPS")
+
+' ── Связи: Service Layer → внешние системы ───────────────────────
+Rel(ai_service, deepseek, "отправляет промпт, получает ответ", "HTTPS / REST")
+Rel(partner_service, partner_shop, "запрашивает каталог товаров", "HTTPS / REST")
+
+SHOW_LEGEND()
+@enduml

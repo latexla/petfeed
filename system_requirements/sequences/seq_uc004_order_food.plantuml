@@ -1,0 +1,103 @@
+@startuml seq_uc004_order_food
+autonumber "<b><color:DarkSlateBlue>.</color></b> "
+
+actor       "Владелец питомца"  as User
+participant "Telegram"          as TG
+participant "Telegram Bot"      as Bot
+participant "Backend API"       as API
+database    "PostgreSQL"        as DB
+participant "Партнёр"           as Partner
+
+== Инициация ==
+User -> TG  : Нажимает "Заказать корм"
+TG   -> Bot : Webhook: callback_query {data: "menu:order"}
+
+== Проверка feature flag ==
+Bot -> API  : REST GET /partners/{id}/products?species=cat\nX-Telegram-Id: {telegram_id}
+API -> DB   : SELECT * FROM feature_flags WHERE key = "feature_orders"
+DB  --> API : {is_enabled: true}
+
+== Загрузка товаров партнёра ==
+API -> DB   : SELECT * FROM products\nWHERE species = "cat" AND is_available = TRUE
+DB  --> API : [{id:1, name:"Royal Canin Maine Coon", price:1890}, ...]
+
+alt Партнёр недоступен (timeout)
+    API --> Bot : 503 Service Unavailable
+    Bot -> TG  : "Сервис доставки временно недоступен. Попробуй позже"
+    TG --> User : Ошибка партнёра
+    return
+else Товаров нет в наличии
+    API --> Bot : 200 OK {products: []}
+    Bot -> TG  : "Рекомендованный корм временно отсутствует.\nПоказываю альтернативы..."
+    TG --> User : Альтернативные товары
+else Товары есть
+    API --> Bot : 200 OK {products: [...]}
+    Bot -> TG  : Список кормов с ценами:\n[Royal Canin 1890₽][Hill's 2100₽]
+    TG --> User : Выбери корм
+end
+
+== Выбор товара ==
+User -> TG  : Нажимает "Royal Canin Maine Coon — 1890₽"
+TG   -> Bot : callback_query {data: "product:1"}
+Bot  -> TG  : Детали товара:\nRoyal Canin Maine Coon\n400г | 1890₽ | ZooShop\n[Перейти к заказу][Назад]
+TG  --> User : Детали товара
+
+User -> TG  : "Перейти к заказу"
+TG   -> Bot : callback_query {data: "order:product_id:1"}
+
+== Создание реферального перехода ==
+Bot -> API  : REST POST /orders\nX-Telegram-Id: {telegram_id}\n{pet_id: 1, product_id: 1}
+
+API -> DB   : SELECT * FROM products WHERE id = 1 AND is_available = TRUE
+DB  --> API : product {price: 1890, partner_id: 1}
+
+API -> DB   : SELECT * FROM partners WHERE id = 1 AND is_active = TRUE
+DB  --> API : partner {website_url, commission_pct: 10}
+
+API -> API  : referral_token = uuid4()\nredirect_url = partner.url + "?ref=" + token
+API -> DB   : INSERT INTO orders\n(user_id, pet_id, product_id, partner_id,\nreferral_token, status="pending")
+DB  --> API : order {id: 42, referral_token: "550e8400..."}
+
+API --> Bot : 201 Created {redirect_url, referral_token}
+
+== Перенаправление к партнёру ==
+Bot -> TG  : Переходишь в ZooShop для оформления заказа.\n[Открыть ZooShop ↗]
+TG --> User : Кнопка с redirect_url
+
+User -> Partner : Переход по реферальной ссылке
+Partner --> User : Страница товара на сайте партнёра
+
+== Подтверждение заказа (webhook) ==
+User -> Partner   : Оформляет и оплачивает заказ
+Partner -> API    : POST /orders/webhook\nX-Api-Key: {partner_key}\n{referral_token: "550e8400..."}
+
+API -> DB   : SELECT * FROM partners\nWHERE api_key_hash = bcrypt_hash(api_key)
+
+alt Неверный API ключ
+    DB  --> API : NULL
+    API --> Partner : 401 Unauthorized
+    return
+end
+
+DB  --> API : partner {id:1, commission_pct: 10}
+API -> DB   : SELECT * FROM orders WHERE referral_token = "550e8400..." AND status = "pending"
+
+alt Заказ уже подтверждён (идемпотентность)
+    DB  --> API : order {status: "confirmed"}
+    API --> Partner : 200 OK (идемпотентно)
+    return
+else Заказ найден
+    DB  --> API : order {id: 42, product_id: 1}
+    API -> API  : commission = 1890 * 0.10 = 189₽
+    API -> DB   : UPDATE orders SET status="confirmed",\ncommission_amount=189,\nconfirmed_at=NOW()\nWHERE id = 42
+    DB  --> API : OK
+end
+
+API --> Partner : 200 OK
+
+== Уведомление пользователя ==
+API -> Bot  : Уведомить о подтверждении заказа
+Bot -> TG   : sendMessage(telegram_id): "Заказ подтверждён!\nRoyal Canin будет доставлен в ближайшее время 🎉"
+TG  --> User : Заказ подтверждён
+
+@enduml

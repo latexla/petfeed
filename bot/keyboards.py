@@ -1,0 +1,67 @@
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+
+def species_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="Кошка",  callback_data="species:cat"),
+            InlineKeyboardButton(text="Собака", callback_data="species:dog"),
+        ],
+        [
+            InlineKeyboardButton(text="Грызун",  callback_data="species:rodent"),
+            InlineKeyboardButton(text="Птица",   callback_data="species:bird"),
+        ],
+        [
+            InlineKeyboardButton(text="Рептилия", callback_data="species:reptile"),
+        ],
+    ])
+
+
+def breed_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Метис / Не знаю", callback_data="breed:unknown")]
+    ])
+
+
+def age_unit_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="В месяцах", callback_data="age_unit:months"),
+            InlineKeyboardButton(text="В годах",   callback_data="age_unit:years"),
+        ]
+    ])
+
+
+def confirm_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="Сохранить", callback_data="confirm:save"),
+            InlineKeyboardButton(text="Изменить",  callback_data="confirm:edit"),
+        ]
+    ])
+
+
+def pets_keyboard(pets: list[dict], action: str) -> InlineKeyboardMarkup:
+    """Список питомцев для выбора. action: 'nutrition'|'stoplist'|'reminders'|'weight'"""
+    rows = [
+        [InlineKeyboardButton(
+            text=f"{p['name']} ({p['species']})",
+            callback_data=f"select_pet:{action}:{p['id']}"
+        )]
+        for p in pets
+    ]
+    rows.append([InlineKeyboardButton(text="+ Добавить питомца", callback_data="add_pet")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def main_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Рацион питания",       callback_data="menu:nutrition")],
+        [InlineKeyboardButton(text="Что нельзя давать",    callback_data="menu:stoplist")],
+        [InlineKeyboardButton(text="Напоминания",           callback_data="menu:reminders")],
+        [InlineKeyboardButton(text="Обновить вес",          callback_data="menu:weight")],
+        [InlineKeyboardButton(text="Заказать корм",         callback_data="menu:order")],
+        [InlineKeyboardButton(text="Задать вопрос AI",      callback_data="menu:ai")],
+        [InlineKeyboardButton(text="Профиль питомца",       callback_data="menu:pet")],
+        [InlineKeyboardButton(text="+ Добавить питомца",    callback_data="add_pet")],
+    ])

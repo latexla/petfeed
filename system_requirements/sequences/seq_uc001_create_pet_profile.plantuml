@@ -1,0 +1,99 @@
+@startuml seq_uc001_create_pet_profile
+autonumber "<b><color:DarkSlateBlue>.</color></b> "
+
+actor       "Владелец питомца"  as User
+participant "Telegram"          as TG
+participant "Telegram Bot"      as Bot
+participant "Backend API"       as API
+database    "PostgreSQL"        as DB
+database    "Redis"             as Redis
+
+== Инициация ==
+User -> TG   : Команда /start
+TG   -> Bot  : Webhook: POST /webhook\n{message: {from: {id, username}}}
+
+== Проверка пользователя ==
+Bot  -> API  : REST GET /users/me\nX-Telegram-Id: {telegram_id}
+API  -> DB   : SELECT * FROM users WHERE telegram_id = :id
+
+alt Пользователь не существует
+    DB   --> API : NULL
+    API  -> DB   : INSERT INTO users (telegram_id, username)
+    DB   --> API : user {id: 1}
+else Пользователь существует, питомец есть
+    DB   --> API : user + pet
+    API  --> Bot : 200 OK {user, pet}
+    Bot  -> TG   : Показать главное меню
+    TG   --> User: Главное меню
+    return
+end
+
+API  -> Redis : SET fsm:{telegram_id} "waiting_species" TTL 1800
+Redis --> API : OK
+API  --> Bot  : 201 Created {user}
+Bot  -> TG   : Показать кнопки выбора вида животного
+TG   --> User : Выбери вид питомца:\n[Кошка][Собака][Грызун][Птица][Рептилия]
+
+== Сбор данных профиля ==
+User -> TG  : Нажимает "Кошка"
+TG   -> Bot : Webhook: callback_query {data: "species:cat"}
+Bot  -> Redis : SET fsm:{telegram_id} {step: "waiting_breed", species: "cat"}
+Bot  -> TG  : Введи породу (или нажми "Метис")
+TG   --> User : Введи породу...
+
+User -> TG  : "Мейн-кун"
+TG   -> Bot : Webhook: {message: {text: "Мейн-кун"}}
+Bot  -> Redis : SET fsm:{telegram_id} {step: "waiting_name", breed: "Мейн-кун"}
+Bot  -> TG  : Как зовут питомца?
+TG   --> User : Как зовут питомца?
+
+User -> TG  : "Барсик"
+TG   -> Bot : Webhook: {message: {text: "Барсик"}}
+Bot  -> Redis : SET fsm:{telegram_id} {step: "waiting_age", name: "Барсик"}
+Bot  -> TG  : Сколько месяцев/лет питомцу?
+TG   --> User : Сколько месяцев/лет?
+
+User -> TG  : "24"
+TG   -> Bot : Webhook: {message: {text: "24"}}
+
+alt Некорректный возраст (не число или < 0)
+    Bot -> TG : Ошибка: "Введи число — количество месяцев"
+    TG --> User : Ошибка. Повтори ввод
+else Корректный возраст
+    Bot -> Redis : SET fsm:{...} {step: "waiting_weight", age_months: 24}
+    Bot -> TG   : Сколько весит питомец (кг)?
+    TG --> User : Сколько весит питомец?
+end
+
+User -> TG  : "5.2"
+TG   -> Bot : Webhook: {message: {text: "5.2"}}
+
+alt Некорректный вес (не число или <= 0)
+    Bot -> TG : Ошибка: "Введи вес в кг, например: 5.2"
+    TG --> User : Ошибка. Повтори ввод
+else Корректный вес
+    Bot -> Redis : GET fsm:{telegram_id}  — собрать все данные
+    Redis --> Bot : {species, breed, name, age_months, weight_kg}
+end
+
+== Сохранение профиля ==
+Bot -> API  : REST POST /pets\nX-Telegram-Id: {telegram_id}\n{name, species, breed, age_months, weight_kg, goal: "maintain"}
+API -> DB   : INSERT INTO pets (owner_id, name, species, breed, age_months, weight_kg, goal)
+DB  --> API : pet {id: 1}
+API -> DB   : INSERT INTO weight_history (pet_id, weight_kg, recorded_at = TODAY)
+DB  --> API : OK
+
+alt Ошибка сохранения (500)
+    API --> Bot : 500 Internal Server Error
+    Bot -> TG  : "Что-то пошло не так. Попробуй позже"
+    TG --> User : Ошибка. Попробуй позже
+else Успешное сохранение
+    API --> Bot : 201 Created {pet}
+    Bot -> Redis : DEL fsm:{telegram_id}
+end
+
+== Возврат результата ==
+Bot -> TG  : Сводка профиля:\n"Барсик | Кошка | Мейн-кун\nВозраст: 24 мес | Вес: 5.2 кг"\n[Получить рацион][Настроить напоминания]
+TG --> User : Профиль создан! Что дальше?
+
+@enduml

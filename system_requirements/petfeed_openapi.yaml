@@ -1,0 +1,1022 @@
+openapi: 3.0.3
+info:
+  title: PetFeed API
+  description: |
+    Backend API для платформы PetFeed — персонального нутрициолога для домашних животных.
+    Обслуживает Telegram-бота, Admin Panel и внешние webhook от партнёров.
+  version: '1.0.0'
+  contact:
+    name: PetFeed Support
+    email: support@petfeed.app
+
+servers:
+  - url: https://api.petfeed.app/v1
+    description: Production
+  - url: http://localhost:8000/v1
+    description: Local development
+
+tags:
+  - name: users
+    description: Пользователи
+  - name: pets
+    description: Профили питомцев
+  - name: nutrition
+    description: Рацион и питание
+  - name: reminders
+    description: Напоминания о кормлении
+  - name: weight
+    description: История веса
+  - name: orders
+    description: Заказы корма через партнёров
+  - name: ai
+    description: AI-ассистент по питанию
+  - name: partners
+    description: Интеграция партнёров
+  - name: admin
+    description: Управление базой знаний и флагами
+
+# ─────────────────────────────────────────────────────────────────
+paths:
+
+  # ── ПОЛЬЗОВАТЕЛИ ─────────────────────────────────────────────
+  /users/me:
+    get:
+      tags: [users]
+      summary: Получить текущего пользователя
+      description: Возвращает профиль пользователя по Telegram ID из заголовка авторизации
+      security:
+        - TelegramAuth: []
+      responses:
+        '200':
+          description: Профиль пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: 1
+                telegram_id: 123456789
+                username: ivan_petrov
+                is_active: true
+                ai_requests_today: 3
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ── ПИТОМЦЫ ──────────────────────────────────────────────────
+  /pets:
+    post:
+      tags: [pets]
+      summary: Создать профиль питомца
+      description: Создаёт профиль питомца для текущего пользователя. MVP — 1 питомец на аккаунт
+      security:
+        - TelegramAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PetCreate'
+            example:
+              name: Барсик
+              species: cat
+              breed: Мейн-кун
+              age_months: 24
+              weight_kg: 5.20
+              goal: maintain
+      responses:
+        '201':
+          description: Питомец создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Питомец уже существует (MVP — 1 питомец)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: pet_already_exists
+                message: У вас уже есть питомец. Функция нескольких питомцев будет доступна в следующей версии
+        '503':
+          $ref: '#/components/responses/FeatureDisabled'
+
+    get:
+      tags: [pets]
+      summary: Получить список питомцев
+      description: Возвращает всех питомцев текущего пользователя
+      security:
+        - TelegramAuth: []
+      responses:
+        '200':
+          description: Список питомцев
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
+
+  /pets/{pet_id}:
+    get:
+      tags: [pets]
+      summary: Получить питомца по ID
+      security:
+        - TelegramAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PetId'
+      responses:
+        '200':
+          description: Профиль питомца
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [pets]
+      summary: Обновить профиль питомца
+      security:
+        - TelegramAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PetId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PetUpdate'
+      responses:
+        '200':
+          description: Питомец обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── ПИТАНИЕ И РАЦИОН ─────────────────────────────────────────
+  /nutrition/{pet_id}/ration:
+    get:
+      tags: [nutrition]
+      summary: Получить персональный рацион питомца
+      description: Рассчитывает и возвращает рацион на основе вида, породы, веса и цели питомца
+      security:
+        - TelegramAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PetId'
+        - name: goal
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [maintain, lose, gain, growth]
+          description: Цель кормления. Если не указана — используется цель из профиля питомца
+      responses:
+        '200':
+          description: Рацион питомца
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ration'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/FeatureDisabled'
+
+  /nutrition/{pet_id}/stop-list:
+    get:
+      tags: [nutrition]
+      summary: Получить стоп-лист продуктов
+      description: Возвращает список запрещённых продуктов для вида питомца с уровнем опасности
+      security:
+        - TelegramAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PetId'
+      responses:
+        '200':
+          description: Список запрещённых продуктов
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stop_list:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StopListItem'
+              example:
+                stop_list:
+                  - product: Лук
+                    danger_level: dangerous
+                    reason: Вызывает анемию, поражает эритроциты
+                  - product: Шоколад
+                    danger_level: fatal
+                    reason: Теобромин токсичен для кошек
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /nutrition/search:
+    get:
+      tags: [nutrition]
+      summary: Проверить продукт по базе знаний
+      description: Поиск продукта в базе знаний для конкретного вида животного
+      security:
+        - TelegramAuth: []
+      parameters:
+        - name: species
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [cat, dog, rodent, bird, reptile]
+        - name: product
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 255
+          description: Название продукта для поиска
+      responses:
+        '200':
+          description: Результат поиска
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NutritionSearchResult'
+
+  # ── НАПОМИНАНИЯ ───────────────────────────────────────────────
+  /pets/{pet_id}/reminders:
+    get:
+      tags: [reminders]
+      summary: Получить напоминания питомца
+      security:
+        - TelegramAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PetId'
+      responses:
+        '200':
+          description: Список напоминаний
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Reminder'
+
+    post:
+      tags: [reminders]
+      summary: Создать расписание напоминаний
+      description: Заменяет все напоминания питомца новым расписанием. Максимум 6 напоминаний
+      security:
+        - TelegramAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PetId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReminderCreate'
+            example:
+              reminder_times: ["08:00", "18:00"]
+              timezone: Europe/Moscow
+      responses:
+        '201':
+          description: Расписание создано
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reminders:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Reminder'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '503':
+          $ref: '#/components/responses/FeatureDisabled'
+
+    delete:
+      tags: [reminders]
+      summary: Отключить все напоминания питомца
+      security:
+        - TelegramAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PetId'
+      responses:
+        '204':
+          description: Напоминания отключены
+
+  # ── ВЕС ───────────────────────────────────────────────────────
+  /pets/{pet_id}/weight:
+    post:
+      tags: [weight]
+      summary: Внести новый вес питомца
+      description: Одна запись в день. При изменении ≥5% — пересчитывает рацион
+      security:
+        - TelegramAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PetId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [weight_kg]
+              properties:
+                weight_kg:
+                  type: number
+                  format: float
+                  minimum: 0.01
+                  maximum: 999.99
+                  example: 5.40
+      responses:
+        '201':
+          description: Вес записан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeightRecord'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Запись за сегодня уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: already_recorded_today
+                message: Вес на сегодня уже внесён
+
+    get:
+      tags: [weight]
+      summary: История веса питомца
+      security:
+        - TelegramAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PetId'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 30
+      responses:
+        '200':
+          description: История взвешиваний
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WeightEntry'
+
+  # ── ЗАКАЗЫ ────────────────────────────────────────────────────
+  /orders:
+    post:
+      tags: [orders]
+      summary: Создать реферальный переход к партнёру
+      description: Формирует уникальную реферальную ссылку и возвращает URL партнёра
+      security:
+        - TelegramAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pet_id, product_id]
+              properties:
+                pet_id:
+                  type: integer
+                  example: 1
+                product_id:
+                  type: integer
+                  example: 42
+      responses:
+        '201':
+          description: Реферальная ссылка создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCreated'
+        '404':
+          description: Товар недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: product_unavailable
+        '503':
+          $ref: '#/components/responses/FeatureDisabled'
+
+    get:
+      tags: [orders]
+      summary: История заказов пользователя
+      security:
+        - TelegramAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Список заказов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+
+  /orders/webhook:
+    post:
+      tags: [orders]
+      summary: Webhook от партнёра о подтверждении заказа
+      description: Партнёр уведомляет PetFeed об успешном оформлении заказа
+      security:
+        - PartnerApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [referral_token]
+              properties:
+                referral_token:
+                  type: string
+                  example: 550e8400-e29b-41d4-a716-446655440000
+      responses:
+        '200':
+          description: Заказ подтверждён (идемпотентно)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── AI-АССИСТЕНТ ──────────────────────────────────────────────
+  /ai/ask:
+    post:
+      tags: [ai]
+      summary: Задать вопрос AI-ассистенту
+      description: |
+        Отправляет вопрос в DeepSeek API с контекстом питомца.
+        Лимит: 10 запросов в день для бесплатного тарифа.
+      security:
+        - TelegramAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pet_id, question]
+              properties:
+                pet_id:
+                  type: integer
+                  example: 1
+                question:
+                  type: string
+                  minLength: 5
+                  maxLength: 1000
+                  example: Можно ли кормить мейн-куна сырой рыбой?
+      responses:
+        '200':
+          description: Ответ AI-ассистента
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiAnswer'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          description: Лимит запросов исчерпан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: rate_limit
+                message: Дневной лимит запросов исчерпан
+                requests_remaining: 0
+                reset_at: "2026-04-19T00:00:00"
+        '503':
+          $ref: '#/components/responses/FeatureDisabled'
+
+  # ── ПАРТНЁРЫ (ADMIN) ──────────────────────────────────────────
+  /partners:
+    get:
+      tags: [partners]
+      summary: Список активных партнёров
+      security:
+        - TelegramAuth: []
+      responses:
+        '200':
+          description: Список партнёров
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Partner'
+
+  /partners/{partner_id}/products:
+    get:
+      tags: [partners]
+      summary: Товары партнёра по виду животного
+      security:
+        - TelegramAuth: []
+      parameters:
+        - name: partner_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: species
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [cat, dog, rodent, bird, reptile]
+      responses:
+        '200':
+          description: Список доступных товаров
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+
+  # ── ADMIN ─────────────────────────────────────────────────────
+  /admin/feature-flags:
+    get:
+      tags: [admin]
+      summary: Список всех feature flags
+      security:
+        - AdminAuth: []
+      responses:
+        '200':
+          description: Список флагов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeatureFlag'
+
+  /admin/feature-flags/{key}:
+    patch:
+      tags: [admin]
+      summary: Включить/выключить feature flag
+      security:
+        - AdminAuth: []
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+          example: feature_ai_assistant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [is_enabled]
+              properties:
+                is_enabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Флаг обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureFlag'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+# ─────────────────────────────────────────────────────────────────
+components:
+
+  securitySchemes:
+    TelegramAuth:
+      type: apiKey
+      in: header
+      name: X-Telegram-Id
+      description: Telegram ID пользователя (передаётся ботом)
+    PartnerApiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: API ключ партнёра-зоомагазина
+    AdminAuth:
+      type: apiKey
+      in: header
+      name: X-Admin-Token
+      description: Токен администратора
+
+  parameters:
+    PetId:
+      name: pet_id
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: ID питомца
+
+  responses:
+    Unauthorized:
+      description: Не авторизован
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: unauthorized
+            message: Требуется авторизация
+    NotFound:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: not_found
+            message: Ресурс не найден
+    ValidationError:
+      description: Ошибка валидации
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: validation_error
+            message: Некорректные данные
+    FeatureDisabled:
+      description: Функция отключена (feature flag)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: feature_disabled
+            feature: feature_orders
+            message: Функция временно недоступна
+
+  schemas:
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        feature:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        telegram_id:
+          type: integer
+          format: int64
+        username:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        ai_requests_today:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    PetCreate:
+      type: object
+      required: [name, species, age_months, weight_kg]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        species:
+          type: string
+          enum: [cat, dog, rodent, bird, reptile]
+        breed:
+          type: string
+          maxLength: 100
+          nullable: true
+        age_months:
+          type: integer
+          minimum: 0
+        weight_kg:
+          type: number
+          format: float
+          minimum: 0.01
+          maximum: 999.99
+        goal:
+          type: string
+          enum: [maintain, lose, gain, growth]
+          default: maintain
+
+    PetUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        breed:
+          type: string
+          maxLength: 100
+          nullable: true
+        age_months:
+          type: integer
+          minimum: 0
+        weight_kg:
+          type: number
+          format: float
+          minimum: 0.01
+        goal:
+          type: string
+          enum: [maintain, lose, gain, growth]
+
+    Pet:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        species:
+          type: string
+        breed:
+          type: string
+          nullable: true
+        age_months:
+          type: integer
+        weight_kg:
+          type: number
+          format: float
+        goal:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    Ration:
+      type: object
+      properties:
+        ration:
+          type: object
+          properties:
+            daily_calories:
+              type: integer
+            portion_grams:
+              type: integer
+            feedings_per_day:
+              type: integer
+            goal:
+              type: string
+        allowed_foods:
+          type: array
+          items:
+            type: string
+        stop_list:
+          type: array
+          items:
+            $ref: '#/components/schemas/StopListItem'
+        weight_warning:
+          type: boolean
+        data_source:
+          type: string
+          enum: [knowledge_base, basic]
+
+    StopListItem:
+      type: object
+      properties:
+        product:
+          type: string
+        danger_level:
+          type: string
+          enum: [moderate, dangerous, fatal]
+          nullable: true
+        reason:
+          type: string
+
+    NutritionSearchResult:
+      type: object
+      properties:
+        product:
+          type: string
+        found:
+          type: boolean
+        is_allowed:
+          type: boolean
+          nullable: true
+        danger_level:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+
+    Reminder:
+      type: object
+      properties:
+        id:
+          type: integer
+        reminder_time:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+          example: "08:00"
+        timezone:
+          type: string
+          example: Europe/Moscow
+        is_active:
+          type: boolean
+
+    ReminderCreate:
+      type: object
+      required: [reminder_times, timezone]
+      properties:
+        reminder_times:
+          type: array
+          items:
+            type: string
+            pattern: '^\d{2}:\d{2}$'
+          minItems: 1
+          maxItems: 6
+        timezone:
+          type: string
+          example: Europe/Moscow
+
+    WeightRecord:
+      type: object
+      properties:
+        weight_kg:
+          type: number
+          format: float
+        prev_weight_kg:
+          type: number
+          format: float
+          nullable: true
+        delta_pct:
+          type: number
+          format: float
+          nullable: true
+        ration_updated:
+          type: boolean
+        critical_change:
+          type: boolean
+        recorded_at:
+          type: string
+          format: date
+
+    WeightEntry:
+      type: object
+      properties:
+        weight_kg:
+          type: number
+          format: float
+        recorded_at:
+          type: string
+          format: date
+
+    OrderCreated:
+      type: object
+      properties:
+        order_id:
+          type: integer
+        referral_token:
+          type: string
+        redirect_url:
+          type: string
+          format: uri
+        product:
+          type: object
+          properties:
+            name:
+              type: string
+            price:
+              type: number
+            partner:
+              type: string
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        product_id:
+          type: integer
+        partner_id:
+          type: integer
+        status:
+          type: string
+          enum: [pending, confirmed, cancelled]
+        commission_amount:
+          type: number
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        confirmed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    AiAnswer:
+      type: object
+      properties:
+        answer:
+          type: string
+        is_cached:
+          type: boolean
+        disclaimer:
+          type: string
+        requests_remaining:
+          type: integer
+
+    Partner:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        website_url:
+          type: string
+          format: uri
+        commission_pct:
+          type: number
+        is_active:
+          type: boolean
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        species:
+          type: string
+        brand:
+          type: string
+          nullable: true
+        weight_grams:
+          type: integer
+          nullable: true
+        price:
+          type: number
+          format: float
+        is_available:
+          type: boolean
+
+    FeatureFlag:
+      type: object
+      properties:
+        id:
+          type: integer
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        is_enabled:
+          type: boolean
+        updated_by:
+          type: string
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
