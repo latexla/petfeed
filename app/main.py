@@ -7,8 +7,10 @@ from app.routers import users, pets, nutrition, reminders, ai, weight
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    import subprocess
-    subprocess.run(["alembic", "upgrade", "head"], check=True)
+    from app.database import engine, Base
+    import app.models  # noqa: F401
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     yield
 
 
