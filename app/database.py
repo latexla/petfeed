@@ -1,11 +1,13 @@
+import ssl
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase
 from app.config import settings
 
 db_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
-if "?" not in db_url:
-    db_url += "?ssl=true"
-engine = create_async_engine(db_url, echo=False)
+ssl_ctx = ssl.create_default_context()
+ssl_ctx.check_hostname = False
+ssl_ctx.verify_mode = ssl.CERT_NONE
+engine = create_async_engine(db_url, echo=False, connect_args={"ssl": ssl_ctx})
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 
