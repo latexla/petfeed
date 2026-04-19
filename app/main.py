@@ -7,10 +7,8 @@ from app.routers import users, pets, nutrition, reminders, ai, weight
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from alembic.config import Config
-    from alembic import command
-    alembic_cfg = Config("alembic.ini")
-    command.upgrade(alembic_cfg, "head")
+    import subprocess
+    subprocess.run(["alembic", "upgrade", "head"], check=True)
     yield
 
 
