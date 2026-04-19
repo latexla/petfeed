@@ -1,0 +1,29 @@
+{% extends "admin/base.html" %}
+{% block title %} — Пользователи{% endblock %}
+{% block content %}
+<h1>Пользователи ({{ users|length }})</h1>
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Telegram ID</th>
+            <th>Username</th>
+            <th>Активен</th>
+            <th>AI запросов сегодня</th>
+            <th>Зарегистрирован</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for u in users %}
+        <tr>
+            <td>{{ u.id }}</td>
+            <td>{{ u.telegram_id }}</td>
+            <td>{{ u.username or '—' }}</td>
+            <td><span class="badge {{ 'badge-on' if u.is_active else 'badge-off' }}">{{ 'Да' if u.is_active else 'Нет' }}</span></td>
+            <td>{{ u.ai_requests_today }}</td>
+            <td>{{ u.created_at.strftime('%d.%m.%Y %H:%M') if u.created_at else '—' }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

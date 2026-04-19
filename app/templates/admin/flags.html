@@ -1,0 +1,33 @@
+{% extends "admin/base.html" %}
+{% block title %} — Feature Flags{% endblock %}
+{% block content %}
+<h1>Feature Flags</h1>
+<table>
+    <thead>
+        <tr>
+            <th>Ключ</th>
+            <th>Название</th>
+            <th>Описание</th>
+            <th>Статус</th>
+            <th>Действие</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for f in flags %}
+        <tr>
+            <td><code>{{ f.key }}</code></td>
+            <td>{{ f.name }}</td>
+            <td style="color:#888;font-size:13px">{{ f.description or '—' }}</td>
+            <td><span class="badge {{ 'badge-on' if f.is_enabled else 'badge-off' }}">{{ 'ON' if f.is_enabled else 'OFF' }}</span></td>
+            <td>
+                <form method="post" action="/admin/flags/{{ f.id }}/toggle">
+                    <button class="btn btn-sm {{ 'btn-danger' if f.is_enabled else 'btn-primary' }}" type="submit">
+                        {{ 'Выключить' if f.is_enabled else 'Включить' }}
+                    </button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

@@ -1,7 +1,7 @@
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-PUBLIC_PATHS = ["/docs", "/openapi.json", "/health", "/v1/orders/webhook"]
+PUBLIC_PATHS = ["/docs", "/openapi.json", "/health", "/v1/orders/webhook", "/admin"]
 
 
 async def telegram_auth_middleware(request: Request, call_next):

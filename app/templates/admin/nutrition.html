@@ -1,0 +1,37 @@
+{% extends "admin/base.html" %}
+{% block title %} — Рацион{% endblock %}
+{% block content %}
+<h1>База знаний рациона</h1>
+{% if records|length == 0 %}
+<div class="alert alert-error">База пустая. Нажми кнопку ниже чтобы заполнить.</div>
+<form method="post" action="/admin/nutrition/seed">
+    <button class="btn btn-primary" type="submit">Заполнить базу (14 записей)</button>
+</form>
+{% else %}
+<p style="margin-bottom:16px;color:#555;font-size:14px">Записей: {{ records|length }}</p>
+<table>
+    <thead>
+        <tr>
+            <th>Вид</th>
+            <th>Цель</th>
+            <th>RER множитель</th>
+            <th>Приёмов в день</th>
+            <th>Ккал/100г</th>
+            <th>Стоп-продукты</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in records %}
+        <tr>
+            <td>{{ r.species }}</td>
+            <td>{{ r.goal }}</td>
+            <td>{{ r.rer_multiplier }}</td>
+            <td>{{ r.meals_per_day }}</td>
+            <td>{{ r.kcal_per_100g }}</td>
+            <td style="font-size:12px;color:#888">{{ r.stop_foods or '—' }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}
