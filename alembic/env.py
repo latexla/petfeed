@@ -27,7 +27,7 @@ def do_run_migrations(connection):
 
 async def run_migrations_online() -> None:
     db_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
-    engine = create_async_engine(db_url)
+    engine = create_async_engine(db_url, connect_args={"ssl": "require"})
     async with engine.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await engine.dispose()
