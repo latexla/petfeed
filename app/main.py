@@ -1,9 +1,20 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.middleware.auth import telegram_auth_middleware
 from app.routers import users, pets, nutrition, reminders, ai, weight
 
-app = FastAPI(title="PetFeed API", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from alembic.config import Config
+    from alembic import command
+    alembic_cfg = Config("alembic.ini")
+    command.upgrade(alembic_cfg, "head")
+    yield
+
+
+app = FastAPI(title="PetFeed API", version="1.0.0", lifespan=lifespan)
 
 app.middleware("http")(telegram_auth_middleware)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
