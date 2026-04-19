@@ -3,6 +3,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     DATABASE_URL: str
+
+    @property
+    def async_database_url(self) -> str:
+        return self.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1).replace("postgres://", "postgresql+asyncpg://", 1)
     REDIS_URL: str
     TELEGRAM_BOT_TOKEN: str
     BACKEND_URL: str = "http://localhost:8000"

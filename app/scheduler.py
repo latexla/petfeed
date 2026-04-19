@@ -1,8 +1,13 @@
 import logging
+import ssl
 from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.config import settings
+
+_ssl_ctx = ssl.create_default_context()
+_ssl_ctx.check_hostname = False
+_ssl_ctx.verify_mode = ssl.CERT_NONE
 
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler(timezone="Europe/Moscow")
@@ -19,7 +24,7 @@ async def check_and_send_reminders():
     if _bot is None:
         return
     now = datetime.now().strftime("%H:%M")
-    engine = create_async_engine(settings.DATABASE_URL)
+    engine = create_async_engine(settings.async_database_url, connect_args={"ssl": _ssl_ctx})
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with session_factory() as session:
         from app.repositories.reminder_repo import ReminderRepository
