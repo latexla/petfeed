@@ -3,7 +3,9 @@ from sqlalchemy.orm import DeclarativeBase
 from app.config import settings
 
 db_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
-engine = create_async_engine(db_url, echo=False, connect_args={"ssl": "require"})
+if "?" not in db_url:
+    db_url += "?ssl=true"
+engine = create_async_engine(db_url, echo=False)
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 
