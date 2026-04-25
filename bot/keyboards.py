@@ -76,3 +76,32 @@ def pet_profile_keyboard(pet_id: int) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="Удалить питомца", callback_data=f"pet:delete:{pet_id}")],
         [InlineKeyboardButton(text="Назад",           callback_data="menu:back")],
     ])
+
+
+def neutered_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="Да", callback_data="neutered:yes"),
+            InlineKeyboardButton(text="Нет", callback_data="neutered:no"),
+        ]
+    ])
+
+
+def activity_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Низкий", callback_data="activity:low"),
+         InlineKeyboardButton(text="Умеренный", callback_data="activity:moderate")],
+        [InlineKeyboardButton(text="Высокий", callback_data="activity:high"),
+         InlineKeyboardButton(text="Рабочий", callback_data="activity:working")],
+    ])
+
+
+def food_category_keyboard(categories: list[dict]) -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton(
+            text=f"{c['name']} (~{int(c['kcal_per_100g'])} ккал/100г)",
+            callback_data=f"food_cat:{c['id']}"
+        )]
+        for c in categories
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
