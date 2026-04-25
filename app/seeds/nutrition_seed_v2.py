@@ -3,6 +3,7 @@
 Запуск: python -m app.seeds.nutrition_seed_v2
 """
 import asyncio
+import ssl
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.config import settings
 from app.models.food_category import FoodCategory
@@ -101,7 +102,10 @@ STOP_FOODS = [
 
 
 async def seed():
-    engine = create_async_engine(settings.async_database_url)
+    ssl_ctx = ssl.create_default_context()
+    ssl_ctx.check_hostname = False
+    ssl_ctx.verify_mode = ssl.CERT_NONE
+    engine = create_async_engine(settings.async_database_url, connect_args={"ssl": ssl_ctx})
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with session_factory() as session:
         for data in FOOD_CATEGORIES:
