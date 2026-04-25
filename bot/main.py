@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import os
+import signal
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.redis import RedisStorage
 from app.config import settings
@@ -20,8 +22,9 @@ async def main():
     dp.include_router(ai_handler.router)
     dp.include_router(weight.router)
     start_scheduler(bot)
-    await dp.start_polling(bot)
+    await dp.start_polling(bot, drop_pending_updates=True)
 
 
 if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, lambda *_: os._exit(0))
     asyncio.run(main())
