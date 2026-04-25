@@ -2,6 +2,7 @@ import httpx
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 from aiogram.fsm.context import FSMContext
+from aiogram.exceptions import TelegramBadRequest
 from bot.keyboards import main_menu_keyboard, pets_keyboard
 from app.config import settings
 
@@ -37,7 +38,10 @@ async def _show_ration(callback: CallbackQuery, pet: dict, telegram_id: int):
     )
     if r["notes"]:
         text += f"\n📌 {r['notes']}"
-    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=main_menu_keyboard())
+    try:
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=main_menu_keyboard())
+    except TelegramBadRequest:
+        pass
 
 
 async def _show_stoplist(callback: CallbackQuery, pet: dict, telegram_id: int):
@@ -56,7 +60,10 @@ async def _show_stoplist(callback: CallbackQuery, pet: dict, telegram_id: int):
         text = f"Что нельзя давать <b>{pet['name']}</b>:\n\n{items}"
     else:
         text = f"Стоп-лист для {pet['name']} не найден."
-    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=main_menu_keyboard())
+    try:
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=main_menu_keyboard())
+    except TelegramBadRequest:
+        pass
 
 
 @router.callback_query(F.data == "menu:nutrition")

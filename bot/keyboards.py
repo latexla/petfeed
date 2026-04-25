@@ -65,3 +65,10 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="Профиль питомца",       callback_data="menu:pet")],
         [InlineKeyboardButton(text="+ Добавить питомца",    callback_data="add_pet")],
     ])
+
+
+def pet_profile_keyboard(pet_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Удалить питомца", callback_data=f"pet:delete:{pet_id}")],
+        [InlineKeyboardButton(text="Назад",           callback_data="menu:back")],
+    ])

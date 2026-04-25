@@ -32,3 +32,7 @@ class PetRepository:
         await self.session.commit()
         await self.session.refresh(pet)
         return pet
+
+    async def delete(self, pet: Pet) -> None:
+        pet.is_active = False
+        await self.session.commit()

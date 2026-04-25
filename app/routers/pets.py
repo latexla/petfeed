@@ -50,3 +50,11 @@ async def update_pet(pet_id: int, data: PetUpdate, request: Request, db: AsyncSe
     if pet is None:
         raise HTTPException(status_code=404, detail={"error": "not_found"})
     return pet
+
+
+@router.delete("/{pet_id}", status_code=204)
+async def delete_pet(pet_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    user = await _get_current_user(request, db)
+    deleted = await PetService(PetRepository(db)).delete(pet_id=pet_id, owner_id=user.id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail={"error": "not_found"})

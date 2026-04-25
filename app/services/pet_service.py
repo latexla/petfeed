@@ -40,3 +40,10 @@ class PetService:
         if "species" in kwargs and kwargs["species"] not in ALLOWED_SPECIES:
             raise ValueError("invalid_species")
         return await self.repo.update(pet, **kwargs)
+
+    async def delete(self, pet_id: int, owner_id: int) -> bool:
+        pet = await self.repo.get_by_id(pet_id=pet_id, owner_id=owner_id)
+        if pet is None:
+            return False
+        await self.repo.delete(pet)
+        return True
