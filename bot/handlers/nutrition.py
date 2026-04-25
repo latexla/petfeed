@@ -28,16 +28,31 @@ async def _show_ration(callback: CallbackQuery, pet: dict, telegram_id: int, pet
         await callback.message.edit_text("Не удалось рассчитать рацион. Попробуй позже.")
         return
     r = resp.json()
+
     text = (
         f"Рацион для <b>{pet['name']}</b>\n"
         f"Вес: {pet['weight_kg']} кг\n\n"
+        f"<b>Энергия</b>\n"
         f"Калорий в день:  <b>{r['daily_calories']} ккал</b>\n"
         f"Корма в день:    <b>{r['daily_food_grams']} г</b>\n"
         f"Кормлений:       <b>{r['meals_per_day']} раза в день</b>\n"
-        f"Порция за раз:   <b>{r['food_per_meal_grams']} г</b>\n"
+        f"Порция за раз:   <b>{r['food_per_meal_grams']} г</b>\n\n"
+        f"<b>Нутриенты (минимум)</b>\n"
+        f"Белок:  {r['protein_min_g']} г/день\n"
+        f"Жир:    {r['fat_min_g']} г/день\n"
+        f"Ca:P    оптимум 1.2–1.4:1\n"
     )
-    if r["notes"]:
-        text += f"\n📌 {r['notes']}"
+
+    if r.get("hypoglycemia_warning"):
+        text += "\n⚠️ Щенок до 4 мес — не пропускай кормления! Риск гипогликемии.\n"
+
+    if r.get("recommendations"):
+        text += "\n<b>Рекомендации</b>\n"
+        for rec in r["recommendations"]:
+            text += f"• {rec}\n"
+
+    text += "\n<i>⚠️ Расчёт — отправная точка. Индивидуальная потребность может отличаться на ±30%.</i>"
+
     try:
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=main_menu_keyboard(pet_name))
     except TelegramBadRequest:
@@ -54,12 +69,31 @@ async def _show_stoplist(callback: CallbackQuery, pet: dict, telegram_id: int, p
         await callback.message.edit_text("Не удалось загрузить стоп-лист. Попробуй позже.")
         return
     r = resp.json()
-    stop_foods = r.get("stop_foods", "")
-    if stop_foods:
-        items = "\n".join(f"• {f.strip()}" for f in stop_foods.split(","))
-        text = f"Что нельзя давать <b>{pet['name']}</b>:\n\n{items}"
-    else:
-        text = f"Стоп-лист для {pet['name']} не найден."
+
+    level1 = r.get("stop_foods_level1", [])
+    level2 = r.get("stop_foods_level2", [])
+    level3 = r.get("stop_foods_level3", [])
+
+    text = ""
+
+    if level1:
+        names = ", ".join(f["product_name"] for f in level1)
+        text += f"⛔ <b>Никогда не давать:</b>\n{names}\n\n"
+
+    if level2:
+        names = ", ".join(f["product_name"] for f in level2)
+        text += f"⚠️ <b>Нежелательно регулярно:</b>\n{names}\n\n"
+
+    if level3:
+        text += (
+            "ℹ️ <b>Пищевые аллергены</b>\n"
+            "Определяются индивидуально через элиминационную диету у ветеринара. "
+            "Бот не выдаёт запреты без диагноза."
+        )
+
+    if not text:
+        text = "Стоп-лист для этого вида не найден."
+
     try:
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=main_menu_keyboard(pet_name))
     except TelegramBadRequest:
