@@ -4,11 +4,8 @@ buildCommand = "pip install -r requirements.txt"
 
 [deploy]
 startCommand = "bash start.sh"
-healthcheckPath = "/health"
-healthcheckTimeout = 30
 restartPolicyType = "on_failure"
 
 [services.bot.deploy]
 startCommand = "python -m bot.main"
-healthcheckPath = ""
 restartPolicyType = "on_failure"
