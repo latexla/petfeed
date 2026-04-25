@@ -67,17 +67,19 @@ async def handle_question(message: Message, state: FSMContext):
             headers={"X-Telegram-Id": str(telegram_id)}
         )
 
-    await state.clear()
+    state_data = await state.get_data()
+    pet_name = state_data.get("active_pet_name", "")
+    await state.set_state(None)
 
     if resp.status_code == 429:
         await message.answer(
             "Лимит запросов исчерпан (10/день).\nЗавтра снова доступно.",
-            reply_markup=main_menu_keyboard()
+            reply_markup=main_menu_keyboard(pet_name)
         )
         return
 
     if resp.status_code != 200:
-        await message.answer("Сервис временно недоступен. Попробуй позже.", reply_markup=main_menu_keyboard())
+        await message.answer("Сервис временно недоступен. Попробуй позже.", reply_markup=main_menu_keyboard(pet_name))
         return
 
     data = resp.json()
@@ -85,5 +87,5 @@ async def handle_question(message: Message, state: FSMContext):
     await message.answer(
         f"{data['answer']}{suffix}",
         parse_mode="HTML",
-        reply_markup=main_menu_keyboard()
+        reply_markup=main_menu_keyboard(pet_name)
     )

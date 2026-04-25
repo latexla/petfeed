@@ -75,7 +75,7 @@ async def select_pet_reminders(callback: CallbackQuery, state: FSMContext):
     pets = await _get_pets(telegram_id)
     pet = next((p for p in pets if p["id"] == pet_id), None)
     if pet:
-        await state.update_data(active_pet_id=pet_id)
+        await state.update_data(active_pet_id=pet_id, active_pet_name=pet["name"])
         await _show_reminder_prompt(callback, state, pet, telegram_id)
 
 
@@ -98,14 +98,16 @@ async def save_reminders(message: Message, state: FSMContext):
             headers={"X-Telegram-Id": str(telegram_id)}
         )
 
-    await state.clear()
+    data = await state.get_data()
+    pet_name = data.get("active_pet_name", "")
+    await state.set_state(None)
     if resp.status_code == 201:
         saved = resp.json()
         times_str = ", ".join(r["time_of_day"] for r in saved)
         await message.answer(
             f"Напоминания установлены: <b>{times_str}</b>\n\nБуду напоминать каждый день!",
             parse_mode="HTML",
-            reply_markup=main_menu_keyboard()
+            reply_markup=main_menu_keyboard(pet_name)
         )
     else:
         error = resp.json().get("detail", {}).get("error", "Неверный формат")

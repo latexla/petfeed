@@ -54,8 +54,11 @@ def pets_keyboard(pets: list[dict], action: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def main_menu_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
+def main_menu_keyboard(pet_name: str = "") -> InlineKeyboardMarkup:
+    rows = []
+    if pet_name:
+        rows.append([InlineKeyboardButton(text=f"🐾 {pet_name} ▼", callback_data="menu:switch_pet")])
+    rows += [
         [InlineKeyboardButton(text="Рацион питания",       callback_data="menu:nutrition")],
         [InlineKeyboardButton(text="Что нельзя давать",    callback_data="menu:stoplist")],
         [InlineKeyboardButton(text="Напоминания",           callback_data="menu:reminders")],
@@ -64,7 +67,8 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="Задать вопрос AI",      callback_data="menu:ai")],
         [InlineKeyboardButton(text="Профиль питомца",       callback_data="menu:pet")],
         [InlineKeyboardButton(text="+ Добавить питомца",    callback_data="add_pet")],
-    ])
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def pet_profile_keyboard(pet_id: int) -> InlineKeyboardMarkup:

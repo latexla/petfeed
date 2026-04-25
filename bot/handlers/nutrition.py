@@ -18,7 +18,7 @@ async def _get_pets(telegram_id: int) -> list[dict]:
         return resp.json() if resp.status_code == 200 else []
 
 
-async def _show_ration(callback: CallbackQuery, pet: dict, telegram_id: int):
+async def _show_ration(callback: CallbackQuery, pet: dict, telegram_id: int, pet_name: str = ""):
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             f"{settings.BACKEND_URL}/v1/nutrition/{pet['id']}",
@@ -39,12 +39,12 @@ async def _show_ration(callback: CallbackQuery, pet: dict, telegram_id: int):
     if r["notes"]:
         text += f"\n📌 {r['notes']}"
     try:
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=main_menu_keyboard())
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=main_menu_keyboard(pet_name))
     except TelegramBadRequest:
         pass
 
 
-async def _show_stoplist(callback: CallbackQuery, pet: dict, telegram_id: int):
+async def _show_stoplist(callback: CallbackQuery, pet: dict, telegram_id: int, pet_name: str = ""):
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             f"{settings.BACKEND_URL}/v1/nutrition/{pet['id']}",
@@ -61,7 +61,7 @@ async def _show_stoplist(callback: CallbackQuery, pet: dict, telegram_id: int):
     else:
         text = f"Стоп-лист для {pet['name']} не найден."
     try:
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=main_menu_keyboard())
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=main_menu_keyboard(pet_name))
     except TelegramBadRequest:
         pass
 
@@ -69,18 +69,19 @@ async def _show_stoplist(callback: CallbackQuery, pet: dict, telegram_id: int):
 @router.callback_query(F.data == "menu:nutrition")
 async def show_nutrition(callback: CallbackQuery, state: FSMContext):
     telegram_id = callback.from_user.id
+    data = await state.get_data()
+    pet_name = data.get("active_pet_name", "")
     pets = await _get_pets(telegram_id)
     if not pets:
         await callback.message.edit_text("Сначала создай профиль питомца — отправь /start")
         return
     if len(pets) == 1:
-        await _show_ration(callback, pets[0], telegram_id)
+        await _show_ration(callback, pets[0], telegram_id, pet_name)
     else:
-        data = await state.get_data()
         active_id = data.get("active_pet_id")
         pet = next((p for p in pets if p["id"] == active_id), None)
         if pet:
-            await _show_ration(callback, pet, telegram_id)
+            await _show_ration(callback, pet, telegram_id, pet_name)
         else:
             await callback.message.edit_text(
                 "Выбери питомца:", reply_markup=pets_keyboard(pets, action="nutrition")
@@ -90,18 +91,19 @@ async def show_nutrition(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "menu:stoplist")
 async def show_stoplist(callback: CallbackQuery, state: FSMContext):
     telegram_id = callback.from_user.id
+    data = await state.get_data()
+    pet_name = data.get("active_pet_name", "")
     pets = await _get_pets(telegram_id)
     if not pets:
         await callback.message.edit_text("Сначала создай профиль питомца — отправь /start")
         return
     if len(pets) == 1:
-        await _show_stoplist(callback, pets[0], telegram_id)
+        await _show_stoplist(callback, pets[0], telegram_id, pet_name)
     else:
-        data = await state.get_data()
         active_id = data.get("active_pet_id")
         pet = next((p for p in pets if p["id"] == active_id), None)
         if pet:
-            await _show_stoplist(callback, pet, telegram_id)
+            await _show_stoplist(callback, pet, telegram_id, pet_name)
         else:
             await callback.message.edit_text(
                 "Выбери питомца:", reply_markup=pets_keyboard(pets, action="stoplist")
@@ -115,8 +117,8 @@ async def select_pet_nutrition(callback: CallbackQuery, state: FSMContext):
     pets = await _get_pets(telegram_id)
     pet = next((p for p in pets if p["id"] == pet_id), None)
     if pet:
-        await state.update_data(active_pet_id=pet_id)
-        await _show_ration(callback, pet, telegram_id)
+        await state.update_data(active_pet_id=pet_id, active_pet_name=pet["name"])
+        await _show_ration(callback, pet, telegram_id, pet["name"])
 
 
 @router.callback_query(F.data.startswith("select_pet:stoplist:"))
@@ -126,5 +128,5 @@ async def select_pet_stoplist(callback: CallbackQuery, state: FSMContext):
     pets = await _get_pets(telegram_id)
     pet = next((p for p in pets if p["id"] == pet_id), None)
     if pet:
-        await state.update_data(active_pet_id=pet_id)
-        await _show_stoplist(callback, pet, telegram_id)
+        await state.update_data(active_pet_id=pet_id, active_pet_name=pet["name"])
+        await _show_stoplist(callback, pet, telegram_id, pet["name"])

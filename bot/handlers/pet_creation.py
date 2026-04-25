@@ -131,15 +131,18 @@ async def confirm_save(callback: CallbackQuery, state: FSMContext):
             },
             headers={"X-Telegram-Id": str(telegram_id)}
         )
-    await state.clear()
     if resp.status_code == 201:
+        pet = resp.json()
+        await state.set_state(None)
+        await state.update_data(active_pet_id=pet["id"], active_pet_name=pet["name"])
         await callback.message.edit_text(
             f"Профиль создан! Теперь я знаю как кормить <b>{data['name']}</b>.\n\n"
             "Выбери что хочешь сделать:",
             parse_mode="HTML",
-            reply_markup=main_menu_keyboard()
+            reply_markup=main_menu_keyboard(data["name"])
         )
     else:
+        await state.clear()
         await callback.message.edit_text("Что-то пошло не так. Попробуй ещё раз /start")
 
 

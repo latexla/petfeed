@@ -59,7 +59,7 @@ async def select_pet_weight(callback: CallbackQuery, state: FSMContext):
     pet = next((p for p in pets if p["id"] == pet_id), None)
     if not pet:
         return
-    await state.update_data(active_pet_id=pet_id, weight_pet_id=pet_id)
+    await state.update_data(active_pet_id=pet_id, active_pet_name=pet["name"], weight_pet_id=pet_id)
     await state.set_state(WeightUpdate.waiting_weight)
     await callback.message.edit_text(
         f"Текущий вес <b>{pet['name']}</b>: {pet['weight_kg']} кг\n\n"
@@ -89,10 +89,12 @@ async def save_weight(message: Message, state: FSMContext):
             headers={"X-Telegram-Id": str(telegram_id)}
         )
 
-    await state.clear()
+    data = await state.get_data()
+    pet_name = data.get("active_pet_name", "")
+    await state.set_state(None)
 
     if resp.status_code != 200:
-        await message.answer("Не удалось обновить вес. Попробуй позже.", reply_markup=main_menu_keyboard())
+        await message.answer("Не удалось обновить вес. Попробуй позже.", reply_markup=main_menu_keyboard(pet_name))
         return
 
     r = resp.json()
@@ -102,5 +104,5 @@ async def save_weight(message: Message, state: FSMContext):
     await message.answer(
         f"Вес обновлён: <b>{r['new_weight']} кг</b> ({sign}{change:.1f} кг){recalc_note}",
         parse_mode="HTML",
-        reply_markup=main_menu_keyboard()
+        reply_markup=main_menu_keyboard(pet_name)
     )
