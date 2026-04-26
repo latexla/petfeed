@@ -74,12 +74,12 @@ class BreedService:
         species_word = "dog" if species == "dog" else "cat"
         b64 = base64.b64encode(photo_bytes).decode()
         client = AsyncOpenAI(
-            api_key=settings.DEEPSEEK_API_KEY,
-            base_url="https://api.deepseek.com",
+            api_key=settings.GROQ_API_KEY,
+            base_url="https://api.groq.com/openai/v1",
         )
         try:
             response = await client.chat.completions.create(
-                model="deepseek-vl",
+                model="meta-llama/llama-4-scout-17b-16e-instruct",
                 messages=[
                     {
                         "role": "user",
@@ -102,7 +102,7 @@ class BreedService:
             )
             breed_name = response.choices[0].message.content.strip()
         except Exception as e:
-            logger.error(f"DeepSeek Vision error: {e}")
+            logger.error(f"Groq Vision error: {e}")
             return BreedMatchResult(
                 confidence=MatchConfidence.LOW, candidates=[], raw_input=""
             )
