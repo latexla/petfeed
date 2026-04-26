@@ -9,7 +9,8 @@ from app.models.weight_history import WeightHistory
 from app.models.food_category import FoodCategory
 from app.models.breed_risk import BreedRisk
 from app.models.stop_food import StopFood
+from app.models.breed_registry import BreedRegistry
 
 __all__ = ["User", "Pet", "FeatureFlag", "Ration", "NutritionKnowledge",
            "FeedingReminder", "AiRequest", "WeightHistory",
-           "FoodCategory", "BreedRisk", "StopFood"]
+           "FoodCategory", "BreedRisk", "StopFood", "BreedRegistry"]
