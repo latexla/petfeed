@@ -1,11 +1,14 @@
 import httpx
+from io import BytesIO
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from bot.states import PetCreation
-from bot.keyboards import (breed_keyboard, age_unit_keyboard, confirm_keyboard,
-                           main_menu_keyboard, species_keyboard,
-                           neutered_keyboard, activity_keyboard, food_category_keyboard)
+from bot.keyboards import (
+    breed_method_keyboard, breed_suggestion_keyboard, breed_not_found_keyboard,
+    age_unit_keyboard, confirm_keyboard, main_menu_keyboard, species_keyboard,
+    neutered_keyboard, activity_keyboard, food_category_keyboard,
+)
 from app.config import settings
 
 router = Router()
@@ -14,53 +17,167 @@ SPECIES_LABELS = {
     "cat": "Кошка", "dog": "Собака", "rodent": "Грызун",
     "bird": "Птица", "reptile": "Рептилия"
 }
-
 ACTIVITY_LABELS = {
     "low": "Низкий", "moderate": "Умеренный",
     "high": "Высокий", "working": "Рабочий"
 }
 
 
-# SCR-02: выбор вида
 @router.callback_query(PetCreation.waiting_species, F.data.startswith("species:"))
 async def process_species(callback: CallbackQuery, state: FSMContext):
     species = callback.data.split(":")[1]
     await state.update_data(species=species)
     await state.set_state(PetCreation.waiting_breed)
     await callback.message.edit_text(
-        "Шаг 2 из 8\nКакая порода?\n\nНапиши породу или нажми кнопку:",
-        reply_markup=breed_keyboard()
+        "Шаг 2 из 9\nКакая порода?",
+        reply_markup=breed_method_keyboard()
     )
 
 
-# SCR-03: ввод породы текстом
-@router.message(PetCreation.waiting_breed)
-async def process_breed_text(message: Message, state: FSMContext):
-    await state.update_data(breed=message.text.strip())
-    await state.set_state(PetCreation.waiting_name)
-    await message.answer("Шаг 3 из 8\nКак зовут питомца?")
+@router.callback_query(PetCreation.waiting_breed, F.data == "breed_method:text")
+async def breed_choose_text(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(PetCreation.waiting_breed_text)
+    await callback.message.edit_text("Напиши название породы:")
 
 
-# SCR-03: метис / не знаю
+@router.callback_query(PetCreation.waiting_breed, F.data == "breed_method:photo")
+async def breed_choose_photo(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(PetCreation.waiting_breed_photo)
+    await callback.message.edit_text("Отправь фото питомца 📷")
+
+
 @router.callback_query(PetCreation.waiting_breed, F.data == "breed:unknown")
 async def process_breed_unknown(callback: CallbackQuery, state: FSMContext):
     await state.update_data(breed=None)
     await state.set_state(PetCreation.waiting_name)
-    await callback.message.edit_text("Шаг 3 из 8\nКак зовут питомца?")
+    await callback.message.edit_text("Шаг 3 из 9\nКак зовут питомца?")
 
 
-# SCR-04: ввод имени
+@router.message(PetCreation.waiting_breed_text)
+async def process_breed_text_input(message: Message, state: FSMContext):
+    data = await state.get_data()
+    species = data.get("species", "dog")
+    query = message.text.strip()
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{settings.BACKEND_URL}/v1/breeds",
+            params={"species": species, "q": query},
+            headers={"X-Telegram-Id": str(message.from_user.id)},
+        )
+
+    if resp.status_code != 200:
+        await message.answer("Ошибка поиска породы. Попробуй ещё раз.")
+        return
+
+    await _handle_breed_result(message, state, resp.json())
+
+
+@router.message(PetCreation.waiting_breed_photo, F.photo)
+async def process_breed_photo(message: Message, state: FSMContext):
+    data = await state.get_data()
+    species = data.get("species", "dog")
+
+    photo = message.photo[-1]
+    file = await message.bot.get_file(photo.file_id)
+    buf = BytesIO()
+    await message.bot.download_file(file.file_path, destination=buf)
+    photo_bytes = buf.getvalue()
+
+    await message.answer("Распознаю породу... ⏳")
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(
+            f"{settings.BACKEND_URL}/v1/breeds/recognize-photo",
+            data={"species": species},
+            files={"photo": ("photo.jpg", photo_bytes, "image/jpeg")},
+            headers={"X-Telegram-Id": str(message.from_user.id)},
+        )
+
+    if resp.status_code != 200:
+        await message.answer(
+            "Не удалось распознать породу по фото. Попробуй написать название.",
+            reply_markup=breed_method_keyboard()
+        )
+        await state.set_state(PetCreation.waiting_breed)
+        return
+
+    await _handle_breed_result(message, state, resp.json())
+
+
+@router.message(PetCreation.waiting_breed_photo)
+async def process_breed_photo_wrong(message: Message, state: FSMContext):
+    await message.answer("Пожалуйста, отправь именно фото 📷")
+
+
+async def _handle_breed_result(message: Message, state: FSMContext, result: dict):
+    confidence = result["confidence"]
+    candidates = result["candidates"]
+    raw_input = result["raw_input"]
+
+    if confidence == "high":
+        breed_name = candidates[0]["canonical_name_ru"]
+        await state.update_data(breed=breed_name)
+        await state.set_state(PetCreation.waiting_name)
+        await message.answer("Шаг 3 из 9\nКак зовут питомца?")
+
+    elif confidence == "medium":
+        await state.update_data(
+            pending_breed_input=raw_input,
+            pending_breed_candidates=candidates
+        )
+        await state.set_state(PetCreation.waiting_breed_suggest)
+        await message.answer(
+            "Уточни породу — выбери из вариантов:",
+            reply_markup=breed_suggestion_keyboard(candidates)
+        )
+
+    else:
+        await state.update_data(pending_breed_input=raw_input, pending_breed_candidates=[])
+        await state.set_state(PetCreation.waiting_breed_suggest)
+        await message.answer(
+            f"Порода «{raw_input}» не найдена в реестре. Что сделать?",
+            reply_markup=breed_not_found_keyboard()
+        )
+
+
+@router.callback_query(PetCreation.waiting_breed_suggest, F.data.startswith("breed_pick:"))
+async def process_breed_pick(callback: CallbackQuery, state: FSMContext):
+    breed_id = int(callback.data.split(":")[1])
+    data = await state.get_data()
+    candidates = data.get("pending_breed_candidates", [])
+    match = next((c for c in candidates if c["breed_id"] == breed_id), None)
+    breed_name = match["canonical_name_ru"] if match else str(breed_id)
+    await state.update_data(breed=breed_name)
+    await state.set_state(PetCreation.waiting_name)
+    await callback.message.edit_text("Шаг 3 из 9\nКак зовут питомца?")
+
+
+@router.callback_query(PetCreation.waiting_breed_suggest, F.data == "breed_raw:save")
+async def process_breed_raw_save(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    raw = data.get("pending_breed_input", "")
+    await state.update_data(breed=raw if raw else None)
+    await state.set_state(PetCreation.waiting_name)
+    await callback.message.edit_text("Шаг 3 из 9\nКак зовут питомца?")
+
+
+@router.callback_query(PetCreation.waiting_breed_suggest, F.data == "breed_method:text")
+async def process_breed_retry(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(PetCreation.waiting_breed_text)
+    await callback.message.edit_text("Напиши название породы:")
+
+
 @router.message(PetCreation.waiting_name)
 async def process_name(message: Message, state: FSMContext):
     await state.update_data(name=message.text.strip())
     await state.set_state(PetCreation.waiting_age_unit)
     await message.answer(
-        "Шаг 4 из 8\nСколько питомцу?",
+        "Шаг 4 из 9\nСколько питомцу?",
         reply_markup=age_unit_keyboard()
     )
 
 
-# SCR-05а: выбор единицы возраста
 @router.callback_query(PetCreation.waiting_age_unit, F.data.startswith("age_unit:"))
 async def process_age_unit(callback: CallbackQuery, state: FSMContext):
     unit = callback.data.split(":")[1]
@@ -72,7 +189,6 @@ async def process_age_unit(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_text("Введи возраст в годах:\n\nНапример: 1, 3, 7")
 
 
-# SCR-05б: ввод числа возраста
 @router.message(PetCreation.waiting_age)
 async def process_age(message: Message, state: FSMContext):
     text = message.text.strip()
@@ -95,10 +211,9 @@ async def process_age(message: Message, state: FSMContext):
 
     await state.update_data(age_months=age_months, age_display=age_display)
     await state.set_state(PetCreation.waiting_weight)
-    await message.answer("Шаг 5 из 8\nСколько весит питомец?\n\nВведи вес в кг. Например: 5.2")
+    await message.answer("Шаг 6 из 9\nСколько весит питомец?\n\nВведи вес в кг. Например: 5.2")
 
 
-# SCR-06: ввод веса → кастрация или активность
 @router.message(PetCreation.waiting_weight)
 async def process_weight(message: Message, state: FSMContext):
     try:
@@ -115,31 +230,29 @@ async def process_weight(message: Message, state: FSMContext):
     if age_months >= 12:
         await state.set_state(PetCreation.waiting_neutered)
         await message.answer(
-            "Шаг 6 из 8\nПитомец кастрирован / стерилизован?",
+            "Шаг 7 из 9\nПитомец кастрирован / стерилизован?",
             reply_markup=neutered_keyboard()
         )
     else:
         await state.update_data(is_neutered=False)
         await state.set_state(PetCreation.waiting_activity)
         await message.answer(
-            "Шаг 6 из 8\nУровень активности питомца?",
+            "Шаг 7 из 9\nУровень активности питомца?",
             reply_markup=activity_keyboard()
         )
 
 
-# SCR-06a: статус кастрации
 @router.callback_query(PetCreation.waiting_neutered, F.data.startswith("neutered:"))
 async def process_neutered(callback: CallbackQuery, state: FSMContext):
     is_neutered = callback.data.split(":")[1] == "yes"
     await state.update_data(is_neutered=is_neutered)
     await state.set_state(PetCreation.waiting_activity)
     await callback.message.edit_text(
-        "Шаг 7 из 8\nУровень активности питомца?",
+        "Шаг 8 из 9\nУровень активности питомца?",
         reply_markup=activity_keyboard()
     )
 
 
-# SCR-07: уровень активности
 @router.callback_query(PetCreation.waiting_activity, F.data.startswith("activity:"))
 async def process_activity(callback: CallbackQuery, state: FSMContext):
     activity = callback.data.split(":")[1]
@@ -160,12 +273,11 @@ async def process_activity(callback: CallbackQuery, state: FSMContext):
             {"id": 4, "name": "BARF (сырое)", "kcal_per_100g": 130},
         ]
     await callback.message.edit_text(
-        "Шаг 8 из 8\nЧем кормите питомца?",
+        "Шаг 9 из 9\nЧем кормите питомца?",
         reply_markup=food_category_keyboard(categories)
     )
 
 
-# SCR-08: тип корма → подтверждение
 @router.callback_query(PetCreation.waiting_food_category, F.data.startswith("food_cat:"))
 async def process_food_category(callback: CallbackQuery, state: FSMContext):
     food_category_id = int(callback.data.split(":")[1])
@@ -190,7 +302,6 @@ async def process_food_category(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(summary, parse_mode="HTML", reply_markup=confirm_keyboard())
 
 
-# SCR-09: подтверждение — сохранить
 @router.callback_query(PetCreation.waiting_confirm, F.data == "confirm:save")
 async def confirm_save(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
@@ -227,11 +338,10 @@ async def confirm_save(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_text("Что-то пошло не так. Попробуй ещё раз /start")
 
 
-# SCR-09: подтверждение — изменить
 @router.callback_query(PetCreation.waiting_confirm, F.data == "confirm:edit")
 async def confirm_edit(callback: CallbackQuery, state: FSMContext):
     await state.set_state(PetCreation.waiting_species)
     await callback.message.edit_text(
-        "Шаг 1 из 8\nКто твой питомец?",
+        "Шаг 1 из 9\nКто твой питомец?",
         reply_markup=species_keyboard()
     )
