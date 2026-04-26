@@ -7,7 +7,7 @@ from bot.states import PetCreation
 from bot.keyboards import (
     breed_method_keyboard, breed_suggestion_keyboard, breed_not_found_keyboard,
     age_unit_keyboard, confirm_keyboard, main_menu_keyboard, species_keyboard,
-    neutered_keyboard, activity_keyboard, food_category_keyboard,
+    neutered_keyboard, activity_keyboard, food_category_keyboard, back_keyboard,
 )
 from app.config import settings
 
@@ -37,20 +37,20 @@ async def process_species(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(PetCreation.waiting_breed, F.data == "breed_method:text")
 async def breed_choose_text(callback: CallbackQuery, state: FSMContext):
     await state.set_state(PetCreation.waiting_breed_text)
-    await callback.message.edit_text("Напиши название породы:")
+    await callback.message.edit_text("Напиши название породы:", reply_markup=back_keyboard())
 
 
 @router.callback_query(PetCreation.waiting_breed, F.data == "breed_method:photo")
 async def breed_choose_photo(callback: CallbackQuery, state: FSMContext):
     await state.set_state(PetCreation.waiting_breed_photo)
-    await callback.message.edit_text("Отправь фото питомца 📷")
+    await callback.message.edit_text("Отправь фото питомца 📷", reply_markup=back_keyboard())
 
 
 @router.callback_query(PetCreation.waiting_breed, F.data == "breed:unknown")
 async def process_breed_unknown(callback: CallbackQuery, state: FSMContext):
     await state.update_data(breed=None)
     await state.set_state(PetCreation.waiting_name)
-    await callback.message.edit_text("Шаг 3 из 9\nКак зовут питомца?")
+    await callback.message.edit_text("Шаг 3 из 9\nКак зовут питомца?", reply_markup=back_keyboard())
 
 
 @router.message(PetCreation.waiting_breed_text)
@@ -119,7 +119,7 @@ async def _handle_breed_result(message: Message, state: FSMContext, result: dict
         breed_name = candidates[0]["canonical_name_ru"]
         await state.update_data(breed=breed_name)
         await state.set_state(PetCreation.waiting_name)
-        await message.answer("Шаг 3 из 9\nКак зовут питомца?")
+        await message.answer("Шаг 3 из 9\nКак зовут питомца?", reply_markup=back_keyboard())
 
     elif confidence == "medium":
         await state.update_data(
@@ -150,7 +150,7 @@ async def process_breed_pick(callback: CallbackQuery, state: FSMContext):
     breed_name = match["canonical_name_ru"] if match else str(breed_id)
     await state.update_data(breed=breed_name)
     await state.set_state(PetCreation.waiting_name)
-    await callback.message.edit_text("Шаг 3 из 9\nКак зовут питомца?")
+    await callback.message.edit_text("Шаг 3 из 9\nКак зовут питомца?", reply_markup=back_keyboard())
 
 
 @router.callback_query(PetCreation.waiting_breed_suggest, F.data == "breed_raw:save")
@@ -159,13 +159,13 @@ async def process_breed_raw_save(callback: CallbackQuery, state: FSMContext):
     raw = data.get("pending_breed_input", "")
     await state.update_data(breed=raw if raw else None)
     await state.set_state(PetCreation.waiting_name)
-    await callback.message.edit_text("Шаг 3 из 9\nКак зовут питомца?")
+    await callback.message.edit_text("Шаг 3 из 9\nКак зовут питомца?", reply_markup=back_keyboard())
 
 
 @router.callback_query(PetCreation.waiting_breed_suggest, F.data == "breed_method:text")
 async def process_breed_retry(callback: CallbackQuery, state: FSMContext):
     await state.set_state(PetCreation.waiting_breed_text)
-    await callback.message.edit_text("Напиши название породы:")
+    await callback.message.edit_text("Напиши название породы:", reply_markup=back_keyboard())
 
 
 @router.message(PetCreation.waiting_name)
@@ -184,9 +184,9 @@ async def process_age_unit(callback: CallbackQuery, state: FSMContext):
     await state.update_data(age_unit=unit)
     await state.set_state(PetCreation.waiting_age)
     if unit == "months":
-        await callback.message.edit_text("Введи возраст в месяцах:\n\nНапример: 6, 24, 36")
+        await callback.message.edit_text("Введи возраст в месяцах:\n\nНапример: 6, 24, 36", reply_markup=back_keyboard())
     else:
-        await callback.message.edit_text("Введи возраст в годах:\n\nНапример: 1, 3, 7")
+        await callback.message.edit_text("Введи возраст в годах:\n\nНапример: 1, 3, 7", reply_markup=back_keyboard())
 
 
 @router.message(PetCreation.waiting_age)
@@ -211,7 +211,7 @@ async def process_age(message: Message, state: FSMContext):
 
     await state.update_data(age_months=age_months, age_display=age_display)
     await state.set_state(PetCreation.waiting_weight)
-    await message.answer("Шаг 6 из 9\nСколько весит питомец?\n\nВведи вес в кг. Например: 5.2")
+    await message.answer("Шаг 6 из 9\nСколько весит питомец?\n\nВведи вес в кг. Например: 5.2", reply_markup=back_keyboard())
 
 
 @router.message(PetCreation.waiting_weight)
@@ -300,6 +300,144 @@ async def process_food_category(callback: CallbackQuery, state: FSMContext):
     )
     await state.set_state(PetCreation.waiting_confirm)
     await callback.message.edit_text(summary, parse_mode="HTML", reply_markup=confirm_keyboard())
+
+
+# ─── BACK HANDLERS ────────────────────────────────────────────────
+
+@router.callback_query(PetCreation.waiting_breed, F.data == "back")
+async def back_from_breed(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(PetCreation.waiting_species)
+    await callback.message.edit_text(
+        "Шаг 1 из 9\nКто твой питомец?",
+        reply_markup=species_keyboard()
+    )
+
+
+@router.callback_query(PetCreation.waiting_breed_text, F.data == "back")
+async def back_from_breed_text(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(PetCreation.waiting_breed)
+    await callback.message.edit_text(
+        "Шаг 2 из 9\nКакая порода?",
+        reply_markup=breed_method_keyboard()
+    )
+
+
+@router.callback_query(PetCreation.waiting_breed_photo, F.data == "back")
+async def back_from_breed_photo(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(PetCreation.waiting_breed)
+    await callback.message.edit_text(
+        "Шаг 2 из 9\nКакая порода?",
+        reply_markup=breed_method_keyboard()
+    )
+
+
+@router.callback_query(PetCreation.waiting_breed_suggest, F.data == "back")
+async def back_from_breed_suggest(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(PetCreation.waiting_breed)
+    await callback.message.edit_text(
+        "Шаг 2 из 9\nКакая порода?",
+        reply_markup=breed_method_keyboard()
+    )
+
+
+@router.callback_query(PetCreation.waiting_name, F.data == "back")
+async def back_from_name(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(PetCreation.waiting_breed)
+    await callback.message.edit_text(
+        "Шаг 2 из 9\nКакая порода?",
+        reply_markup=breed_method_keyboard()
+    )
+
+
+@router.callback_query(PetCreation.waiting_age_unit, F.data == "back")
+async def back_from_age_unit(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(PetCreation.waiting_name)
+    await callback.message.edit_text(
+        "Шаг 3 из 9\nКак зовут питомца?",
+        reply_markup=back_keyboard()
+    )
+
+
+@router.callback_query(PetCreation.waiting_age, F.data == "back")
+async def back_from_age(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(PetCreation.waiting_age_unit)
+    await callback.message.edit_text(
+        "Шаг 4 из 9\nСколько питомцу?",
+        reply_markup=age_unit_keyboard()
+    )
+
+
+@router.callback_query(PetCreation.waiting_weight, F.data == "back")
+async def back_from_weight(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    unit = data.get("age_unit", "months")
+    await state.set_state(PetCreation.waiting_age)
+    if unit == "months":
+        await callback.message.edit_text(
+            "Введи возраст в месяцах:\n\nНапример: 6, 24, 36",
+            reply_markup=back_keyboard()
+        )
+    else:
+        await callback.message.edit_text(
+            "Введи возраст в годах:\n\nНапример: 1, 3, 7",
+            reply_markup=back_keyboard()
+        )
+
+
+@router.callback_query(PetCreation.waiting_neutered, F.data == "back")
+async def back_from_neutered(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(PetCreation.waiting_weight)
+    await callback.message.edit_text(
+        "Шаг 6 из 9\nСколько весит питомец?\n\nВведи вес в кг. Например: 5.2",
+        reply_markup=back_keyboard()
+    )
+
+
+@router.callback_query(PetCreation.waiting_activity, F.data == "back")
+async def back_from_activity(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    age_months = data.get("age_months", 0)
+    if age_months >= 12:
+        await state.set_state(PetCreation.waiting_neutered)
+        await callback.message.edit_text(
+            "Шаг 7 из 9\nПитомец кастрирован / стерилизован?",
+            reply_markup=neutered_keyboard()
+        )
+    else:
+        await state.set_state(PetCreation.waiting_weight)
+        await callback.message.edit_text(
+            "Шаг 6 из 9\nСколько весит питомец?\n\nВведи вес в кг. Например: 5.2",
+            reply_markup=back_keyboard()
+        )
+
+
+@router.callback_query(PetCreation.waiting_food_category, F.data == "back")
+async def back_from_food_category(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(PetCreation.waiting_activity)
+    await callback.message.edit_text(
+        "Шаг 8 из 9\nУровень активности питомца?",
+        reply_markup=activity_keyboard()
+    )
+
+
+@router.callback_query(PetCreation.waiting_confirm, F.data == "back")
+async def back_from_confirm(callback: CallbackQuery, state: FSMContext):
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{settings.BACKEND_URL}/v1/nutrition/food-categories",
+            headers={"X-Telegram-Id": str(callback.from_user.id)}
+        )
+    categories = resp.json() if resp.status_code == 200 else [
+        {"id": 1, "name": "Сухой корм", "kcal_per_100g": 350},
+        {"id": 2, "name": "Влажный корм", "kcal_per_100g": 85},
+        {"id": 3, "name": "Натуральный", "kcal_per_100g": 150},
+        {"id": 4, "name": "BARF (сырое)", "kcal_per_100g": 130},
+    ]
+    await state.set_state(PetCreation.waiting_food_category)
+    await callback.message.edit_text(
+        "Шаг 9 из 9\nЧем кормите питомца?",
+        reply_markup=food_category_keyboard(categories)
+    )
 
 
 @router.callback_query(PetCreation.waiting_confirm, F.data == "confirm:save")

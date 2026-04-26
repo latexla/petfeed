@@ -28,7 +28,8 @@ def age_unit_keyboard() -> InlineKeyboardMarkup:
         [
             InlineKeyboardButton(text="В месяцах", callback_data="age_unit:months"),
             InlineKeyboardButton(text="В годах",   callback_data="age_unit:years"),
-        ]
+        ],
+        [InlineKeyboardButton(text="← Назад", callback_data="back")],
     ])
 
 
@@ -37,7 +38,8 @@ def confirm_keyboard() -> InlineKeyboardMarkup:
         [
             InlineKeyboardButton(text="Сохранить", callback_data="confirm:save"),
             InlineKeyboardButton(text="Изменить",  callback_data="confirm:edit"),
-        ]
+        ],
+        [InlineKeyboardButton(text="← Назад", callback_data="back")],
     ])
 
 
@@ -83,7 +85,8 @@ def neutered_keyboard() -> InlineKeyboardMarkup:
         [
             InlineKeyboardButton(text="Да", callback_data="neutered:yes"),
             InlineKeyboardButton(text="Нет", callback_data="neutered:no"),
-        ]
+        ],
+        [InlineKeyboardButton(text="← Назад", callback_data="back")],
     ])
 
 
@@ -93,6 +96,7 @@ def activity_keyboard() -> InlineKeyboardMarkup:
          InlineKeyboardButton(text="Умеренный", callback_data="activity:moderate")],
         [InlineKeyboardButton(text="Высокий", callback_data="activity:high"),
          InlineKeyboardButton(text="Рабочий", callback_data="activity:working")],
+        [InlineKeyboardButton(text="← Назад", callback_data="back")],
     ])
 
 
@@ -104,6 +108,7 @@ def food_category_keyboard(categories: list[dict]) -> InlineKeyboardMarkup:
         )]
         for c in categories
     ]
+    rows.append([InlineKeyboardButton(text="← Назад", callback_data="back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -112,6 +117,7 @@ def breed_method_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="Написать название", callback_data="breed_method:text")],
         [InlineKeyboardButton(text="Отправить фото 📷", callback_data="breed_method:photo")],
         [InlineKeyboardButton(text="Метис / Не знаю", callback_data="breed:unknown")],
+        [InlineKeyboardButton(text="← Назад", callback_data="back")],
     ])
 
 
@@ -126,6 +132,7 @@ def breed_suggestion_keyboard(candidates: list[dict]) -> InlineKeyboardMarkup:
     rows.append([InlineKeyboardButton(
         text="Сохранить как введено", callback_data="breed_raw:save"
     )])
+    rows.append([InlineKeyboardButton(text="← Назад", callback_data="back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -133,4 +140,11 @@ def breed_not_found_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Ввести заново", callback_data="breed_method:text")],
         [InlineKeyboardButton(text="Сохранить как введено", callback_data="breed_raw:save")],
+        [InlineKeyboardButton(text="← Назад", callback_data="back")],
+    ])
+
+
+def back_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="← Назад", callback_data="back")]
     ])
