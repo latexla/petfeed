@@ -105,3 +105,32 @@ def food_category_keyboard(categories: list[dict]) -> InlineKeyboardMarkup:
         for c in categories
     ]
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def breed_method_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Написать название", callback_data="breed_method:text")],
+        [InlineKeyboardButton(text="Отправить фото 📷", callback_data="breed_method:photo")],
+        [InlineKeyboardButton(text="Метис / Не знаю", callback_data="breed:unknown")],
+    ])
+
+
+def breed_suggestion_keyboard(candidates: list[dict]) -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton(
+            text=f"{c['canonical_name_ru']} ({c['canonical_name']})",
+            callback_data=f"breed_pick:{c['breed_id']}"
+        )]
+        for c in candidates
+    ]
+    rows.append([InlineKeyboardButton(
+        text="Сохранить как введено", callback_data="breed_raw:save"
+    )])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def breed_not_found_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Ввести заново", callback_data="breed_method:text")],
+        [InlineKeyboardButton(text="Сохранить как введено", callback_data="breed_raw:save")],
+    ])
