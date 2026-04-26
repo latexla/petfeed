@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.middleware.auth import telegram_auth_middleware
-from app.routers import users, pets, nutrition, reminders, ai, weight
+from app.routers import users, pets, nutrition, reminders, ai, weight, breeds
 from app.routers import admin
 
 
@@ -26,6 +26,7 @@ app.include_router(nutrition.router, prefix="/v1")
 app.include_router(reminders.router, prefix="/v1")
 app.include_router(ai.router, prefix="/v1")
 app.include_router(weight.router, prefix="/v1")
+app.include_router(breeds.router, prefix="/v1")
 app.include_router(admin.router)
 
 
