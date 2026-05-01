@@ -3,7 +3,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from bot.keyboards import main_menu_keyboard, pets_keyboard
+from bot.keyboards import main_menu_keyboard, pets_keyboard, back_keyboard
 from app.config import settings
 
 router = Router()
@@ -44,7 +44,7 @@ async def _show_reminder_prompt(callback: CallbackQuery, state: FSMContext, pet:
             "Введи время кормления через запятую:\n"
             "Например: <code>08:00, 20:00</code>"
         )
-    await callback.message.edit_text(text, parse_mode="HTML")
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=back_keyboard())
 
 
 @router.callback_query(F.data == "menu:reminders")
@@ -77,6 +77,14 @@ async def select_pet_reminders(callback: CallbackQuery, state: FSMContext):
     if pet:
         await state.update_data(active_pet_id=pet_id, active_pet_name=pet["name"])
         await _show_reminder_prompt(callback, state, pet, telegram_id)
+
+
+@router.callback_query(ReminderSetup.waiting_times, F.data == "back")
+async def back_from_reminder_input(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    pet_name = data.get("active_pet_name", "")
+    await state.clear()
+    await callback.message.edit_text("Главное меню", reply_markup=main_menu_keyboard(pet_name))
 
 
 @router.message(ReminderSetup.waiting_times)
