@@ -136,3 +136,29 @@ def back_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="← Назад", callback_data="back")]
     ])
+
+
+def meal_type_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🥩 Натуралка",  callback_data="meal_type:natural")],
+        [InlineKeyboardButton(text="🥫 Корм",       callback_data="meal_type:prepared")],
+        [InlineKeyboardButton(text="🔀 Смешанное",  callback_data="meal_type:mixed")],
+        [InlineKeyboardButton(text="← Отмена",      callback_data="meal_cancel")],
+    ])
+
+
+def meal_progress_keyboard(pet_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Показать итог",      callback_data=f"meal_summary:{pet_id}")],
+        [InlineKeyboardButton(text="↩ Отменить последний", callback_data=f"meal_undo:{pet_id}")],
+        [InlineKeyboardButton(text="✖ Начать заново",      callback_data=f"meal_reset:{pet_id}")],
+    ])
+
+
+def meal_l2_keyboard(product_name: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Да, добавить",
+                              callback_data=f"meal_l2_yes:{product_name}")],
+        [InlineKeyboardButton(text="Нет, заменить",
+                              callback_data="meal_l2_no")],
+    ])
