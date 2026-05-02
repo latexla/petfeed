@@ -7,7 +7,7 @@ from bot.states import PetCreation
 from bot.keyboards import (
     breed_method_keyboard, breed_suggestion_keyboard, breed_not_found_keyboard,
     age_unit_keyboard, confirm_keyboard, main_menu_keyboard, species_keyboard,
-    neutered_keyboard, activity_keyboard, food_category_keyboard, back_keyboard,
+    neutered_keyboard, activity_keyboard, back_keyboard,
 )
 from app.config import settings
 
@@ -257,36 +257,11 @@ async def process_neutered(callback: CallbackQuery, state: FSMContext):
 async def process_activity(callback: CallbackQuery, state: FSMContext):
     activity = callback.data.split(":")[1]
     await state.update_data(activity_level=activity)
-    await state.set_state(PetCreation.waiting_food_category)
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            f"{settings.BACKEND_URL}/v1/nutrition/food-categories",
-            headers={"X-Telegram-Id": str(callback.from_user.id)}
-        )
-    if resp.status_code == 200:
-        categories = resp.json()
-    else:
-        categories = [
-            {"id": 1, "name": "Сухой корм", "kcal_per_100g": 350},
-            {"id": 2, "name": "Влажный корм", "kcal_per_100g": 85},
-            {"id": 3, "name": "Натуральный", "kcal_per_100g": 150},
-            {"id": 4, "name": "BARF (сырое)", "kcal_per_100g": 130},
-        ]
-    await callback.message.edit_text(
-        "Шаг 9 из 9\nЧем кормите питомца?",
-        reply_markup=food_category_keyboard(categories)
-    )
-
-
-@router.callback_query(PetCreation.waiting_food_category, F.data.startswith("food_cat:"))
-async def process_food_category(callback: CallbackQuery, state: FSMContext):
-    food_category_id = int(callback.data.split(":")[1])
-    await state.update_data(food_category_id=food_category_id)
     data = await state.get_data()
 
     breed_label = data.get("breed") or "Метис"
     neutered_label = "Да" if data.get("is_neutered") else "Нет"
-    activity_label = ACTIVITY_LABELS.get(data.get("activity_level", "moderate"), "Умеренный")
+    activity_label = ACTIVITY_LABELS.get(activity, activity)
 
     summary = (
         f"Проверь данные питомца\n\n"
@@ -411,32 +386,12 @@ async def back_from_activity(callback: CallbackQuery, state: FSMContext):
         )
 
 
-@router.callback_query(PetCreation.waiting_food_category, F.data == "back")
-async def back_from_food_category(callback: CallbackQuery, state: FSMContext):
-    await state.set_state(PetCreation.waiting_activity)
-    await callback.message.edit_text(
-        "Шаг 8 из 9\nУровень активности питомца?",
-        reply_markup=activity_keyboard()
-    )
-
-
 @router.callback_query(PetCreation.waiting_confirm, F.data == "back")
 async def back_from_confirm(callback: CallbackQuery, state: FSMContext):
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            f"{settings.BACKEND_URL}/v1/nutrition/food-categories",
-            headers={"X-Telegram-Id": str(callback.from_user.id)}
-        )
-    categories = resp.json() if resp.status_code == 200 else [
-        {"id": 1, "name": "Сухой корм", "kcal_per_100g": 350},
-        {"id": 2, "name": "Влажный корм", "kcal_per_100g": 85},
-        {"id": 3, "name": "Натуральный", "kcal_per_100g": 150},
-        {"id": 4, "name": "BARF (сырое)", "kcal_per_100g": 130},
-    ]
-    await state.set_state(PetCreation.waiting_food_category)
+    await state.set_state(PetCreation.waiting_activity)
     await callback.message.edit_text(
-        "Шаг 9 из 9\nЧем кормите питомца?",
-        reply_markup=food_category_keyboard(categories)
+        "Шаг 8 из 8\nУровень активности питомца?",
+        reply_markup=activity_keyboard()
     )
 
 
@@ -457,7 +412,6 @@ async def confirm_save(callback: CallbackQuery, state: FSMContext):
                 "is_neutered": data.get("is_neutered", False),
                 "activity_level": data.get("activity_level", "moderate"),
                 "physio_status": data.get("physio_status", "normal"),
-                "food_category_id": data.get("food_category_id"),
             },
             headers={"X-Telegram-Id": str(telegram_id)}
         )

@@ -34,9 +34,7 @@ async def _show_ration(callback: CallbackQuery, pet: dict, telegram_id: int, pet
         f"Вес: {pet['weight_kg']} кг\n\n"
         f"<b>Энергия</b>\n"
         f"Калорий в день:  <b>{r['daily_calories']} ккал</b>\n"
-        f"Корма в день:    <b>{r['daily_food_grams']} г</b>\n"
-        f"Кормлений:       <b>{r['meals_per_day']} раза в день</b>\n"
-        f"Порция за раз:   <b>{r['food_per_meal_grams']} г</b>\n\n"
+        f"Кормлений:       <b>{r['meals_per_day']} раза в день</b>\n\n"
         f"<b>Нутриенты (минимум)</b>\n"
         f"Белок:  {r['protein_min_g']} г/день\n"
         f"Жир:    {r['fat_min_g']} г/день\n"
@@ -53,8 +51,15 @@ async def _show_ration(callback: CallbackQuery, pet: dict, telegram_id: int, pet
 
     text += "\n<i>⚠️ Расчёт — отправная точка. Индивидуальная потребность может отличаться на ±30%.</i>"
 
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🍽 Подобрать порцию",
+                              callback_data=f"meal_start:{pet['id']}")],
+        [InlineKeyboardButton(text="← Главное меню", callback_data="menu:back")],
+    ])
+
     try:
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=main_menu_keyboard(pet_name))
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
     except TelegramBadRequest:
         pass
 
@@ -164,3 +169,10 @@ async def select_pet_stoplist(callback: CallbackQuery, state: FSMContext):
     if pet:
         await state.update_data(active_pet_id=pet_id, active_pet_name=pet["name"])
         await _show_stoplist(callback, pet, telegram_id, pet["name"])
+
+
+@router.callback_query(F.data == "menu:back")
+async def back_to_menu(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    pet_name = data.get("active_pet_name", "")
+    await callback.message.edit_text("Главное меню", reply_markup=main_menu_keyboard(pet_name))

@@ -100,18 +100,6 @@ def activity_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
-def food_category_keyboard(categories: list[dict]) -> InlineKeyboardMarkup:
-    rows = [
-        [InlineKeyboardButton(
-            text=f"{c['name']} (~{int(c['kcal_per_100g'])} ккал/100г)",
-            callback_data=f"food_cat:{c['id']}"
-        )]
-        for c in categories
-    ]
-    rows.append([InlineKeyboardButton(text="← Назад", callback_data="back")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
-
-
 def breed_method_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Написать название", callback_data="breed_method:text")],

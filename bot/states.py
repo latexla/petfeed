@@ -13,5 +13,4 @@ class PetCreation(StatesGroup):
     waiting_weight         = State()
     waiting_neutered       = State()
     waiting_activity       = State()
-    waiting_food_category  = State()
     waiting_confirm        = State()
