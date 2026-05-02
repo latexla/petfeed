@@ -271,3 +271,47 @@ suggested_grams = clamp(gap_kcal_remaining × 0.5 / (kcal_per_100g / 100), 20, 2
 - Виды с полным покрытием: **dog**, **cat**. Остальные (rodent, bird, reptile) — базовые микро (Ca, P).
 - DeepSeek-fallback расходует AI-лимит (10/день бесплатно). Кэш 24ч снижает нагрузку.
 - `name_aliases` заполняются вручную при seed; расширение синонимов через DeepSeek — Фаза 2.
+
+---
+
+## Упрощение: удаление расчёта граммовки из рациона
+
+MealBuilder делает `daily_food_grams` бессмысленным — реальные граммы зависят от конкретных продуктов, а не от усреднённого kcal/100g. Поэтому вместе с этой фичей делаем следующие изменения:
+
+### Что убираем
+
+| Компонент | Изменение |
+|-----------|-----------|
+| `Pet.food_category_id` | Удалить поле из модели и схемы |
+| `PetCreation` FSM шаг 9 «Чем кормите?» | Удалить — становится 8 шагов |
+| `NutritionService` — расчёт `daily_food_grams` | Удалить, `kcal_per_100g` больше не нужен |
+| `Ration.daily_food_grams`, `Ration.food_per_meal_grams` | Сделать nullable (миграция), не заполнять |
+| Отображение граммовки в `bot/handlers/nutrition.py` | Убрать строки «Корма в день» и «Порция за раз» |
+
+### Что остаётся в рационе
+
+Рацион теперь показывает только **цели**:
+```
+Рацион для Барона
+Калорий в день:  420 ккал
+Кормлений:       2 раза в день
+Белок (минимум): 28 г/день
+Жир  (минимум):  8 г/день
+Ca:P оптимум:    1.2–1.4:1
+```
+
+Граммы конкретной еды — только через «Подобрать порцию» (MealBuilder).
+
+### Дополнительные файлы к изменению
+
+| Файл | Действие |
+|------|----------|
+| `app/models/pet.py` | Удалить `food_category_id` |
+| `app/schemas/pet.py` | Удалить `food_category_id` из `PetCreate`/`PetUpdate`/`PetResponse` |
+| `app/services/nutrition_service.py` | Удалить `food_category_id` логику и `daily_food_grams` расчёт |
+| `app/repositories/nutrition_repo.py` | Удалить `get_food_category()` вызов из `calculate_and_save` |
+| `bot/handlers/pet_creation.py` | Удалить `waiting_food_category` шаг и обработчики |
+| `bot/keyboards.py` | Удалить `food_category_keyboard()` |
+| `bot/states.py` | Удалить `waiting_food_category` из `PetCreation` |
+| `bot/handlers/nutrition.py` | Убрать строки граммовки из `_show_ration()` |
+| `alembic/versions/xxxx_...` | `food_category_id` DROP из pets, nullable на rations |
