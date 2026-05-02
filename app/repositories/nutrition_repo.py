@@ -59,22 +59,20 @@ class NutritionRepository:
         return result.scalar_one_or_none()
 
     async def upsert_ration(self, pet_id: int, daily_calories: float,
-                            daily_food_grams: float, meals_per_day: int,
-                            food_per_meal_grams: float, notes: str | None) -> Ration:
+                            meals_per_day: int, notes: str | None) -> Ration:
         existing = await self.get_ration_by_pet(pet_id)
         if existing:
             existing.daily_calories = daily_calories
-            existing.daily_food_grams = daily_food_grams
             existing.meals_per_day = meals_per_day
-            existing.food_per_meal_grams = food_per_meal_grams
             existing.notes = notes
             await self.session.commit()
             await self.session.refresh(existing)
             return existing
         ration = Ration(
-            pet_id=pet_id, daily_calories=daily_calories,
-            daily_food_grams=daily_food_grams, meals_per_day=meals_per_day,
-            food_per_meal_grams=food_per_meal_grams, notes=notes
+            pet_id=pet_id,
+            daily_calories=daily_calories,
+            meals_per_day=meals_per_day,
+            notes=notes,
         )
         self.session.add(ration)
         await self.session.commit()

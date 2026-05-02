@@ -17,7 +17,6 @@ class PetCreate(BaseModel):
     is_neutered: bool = False
     activity_level: str = "moderate"
     physio_status: str = "normal"
-    food_category_id: int | None = None
 
     @field_validator("species")
     @classmethod
@@ -57,7 +56,6 @@ class PetUpdate(BaseModel):
     is_neutered: bool | None = None
     activity_level: str | None = None
     physio_status: str | None = None
-    food_category_id: int | None = None
 
 
 class PetResponse(BaseModel):
@@ -71,7 +69,6 @@ class PetResponse(BaseModel):
     is_neutered: bool
     activity_level: str
     physio_status: str
-    food_category_id: int | None
     is_active: bool
     created_at: datetime
 

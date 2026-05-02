@@ -1,9 +1,7 @@
 from dataclasses import dataclass
 from app.models.pet import Pet
 from app.models.ration import Ration
-from app.models.food_category import FoodCategory
 from app.repositories.nutrition_repo import NutritionRepository
-
 
 ACTIVITY_MULTIPLIER = {
     "low": 0.8,
@@ -11,6 +9,7 @@ ACTIVITY_MULTIPLIER = {
     "high": 1.2,
     "working": 1.6,
 }
+_DEFAULT_KCAL = 350.0  # used only for protein/fat minimum estimation
 
 
 class MERCalculator:
@@ -89,9 +88,7 @@ class MERCalculator:
 @dataclass
 class RationResult:
     daily_calories: float
-    daily_food_grams: float
     meals_per_day: int
-    food_per_meal_grams: float
     protein_min_g: float
     fat_min_g: float
     stop_foods_level1: list[dict]
@@ -109,7 +106,6 @@ class NutritionService:
 
     async def calculate_and_save(self, pet: Pet) -> RationResult:
         weight = float(pet.weight_kg)
-
         breed_risks = await self.repo.get_breed_risks(pet.breed or "")
 
         calc = MERCalculator(
@@ -122,18 +118,11 @@ class NutritionService:
             breed_risks=breed_risks,
         )
 
-        food_cat: FoodCategory | None = None
-        if pet.food_category_id:
-            food_cat = await self.repo.get_food_category(pet.food_category_id)
-
-        kcal_per_100g = float(food_cat.kcal_per_100g) if food_cat else 350.0
-
         mer = round(calc.mer(), 1)
-        daily_grams = round(calc.daily_food_grams(kcal_per_100g), 1)
         meals = calc.meals_per_day()
-        per_meal = round(daily_grams / meals, 1)
-        protein_g = round(calc.protein_min_g(daily_grams), 1)
-        fat_g = round(calc.fat_min_g(daily_grams), 1)
+        daily_grams_est = round(calc.daily_food_grams(_DEFAULT_KCAL), 1)
+        protein_g = round(calc.protein_min_g(daily_grams_est), 1)
+        fat_g = round(calc.fat_min_g(daily_grams_est), 1)
 
         stop1 = await self.repo.get_stop_foods(pet.species, level=1)
         stop2 = await self.repo.get_stop_foods(pet.species, level=2)
@@ -142,17 +131,13 @@ class NutritionService:
         ration = await self.repo.upsert_ration(
             pet_id=pet.id,
             daily_calories=mer,
-            daily_food_grams=daily_grams,
             meals_per_day=meals,
-            food_per_meal_grams=per_meal,
             notes="; ".join(calc.recommendations()),
         )
 
         return RationResult(
             daily_calories=mer,
-            daily_food_grams=daily_grams,
             meals_per_day=meals,
-            food_per_meal_grams=per_meal,
             protein_min_g=protein_g,
             fat_min_g=fat_g,
             stop_foods_level1=stop1,

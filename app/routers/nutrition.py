@@ -21,9 +21,7 @@ class StopFoodItem(BaseModel):
 class RationResponse(BaseModel):
     pet_id: int
     daily_calories: float
-    daily_food_grams: float
     meals_per_day: int
-    food_per_meal_grams: float
     protein_min_g: float
     fat_min_g: float
     stop_foods_level1: list[StopFoodItem]
@@ -32,22 +30,6 @@ class RationResponse(BaseModel):
     recommendations: list[str]
     hypoglycemia_warning: bool
     notes: str
-    stop_foods: str
-
-
-@router.get("/food-categories", response_model=list[dict])
-async def get_food_categories(db: AsyncSession = Depends(get_db)):
-    repo = NutritionRepository(db)
-    cats = await repo.get_all_food_categories()
-    return [
-        {
-            "id": c.id,
-            "name": c.name,
-            "food_type": c.food_type,
-            "kcal_per_100g": float(c.kcal_per_100g),
-        }
-        for c in cats
-    ]
 
 
 @router.get("/{pet_id}", response_model=RationResponse)
@@ -62,16 +44,10 @@ async def get_ration(pet_id: int, request: Request, db: AsyncSession = Depends(g
     service = NutritionService(NutritionRepository(db))
     result = await service.calculate_and_save(pet)
 
-    stop_foods_str = ", ".join(
-        f["product_name"] for f in result.stop_foods_level1
-    )
-
     return RationResponse(
         pet_id=pet.id,
         daily_calories=result.daily_calories,
-        daily_food_grams=result.daily_food_grams,
         meals_per_day=result.meals_per_day,
-        food_per_meal_grams=result.food_per_meal_grams,
         protein_min_g=result.protein_min_g,
         fat_min_g=result.fat_min_g,
         stop_foods_level1=[StopFoodItem(**s) for s in result.stop_foods_level1],
@@ -80,5 +56,4 @@ async def get_ration(pet_id: int, request: Request, db: AsyncSession = Depends(g
         recommendations=result.recommendations,
         hypoglycemia_warning=result.hypoglycemia_warning,
         notes=result.notes,
-        stop_foods=stop_foods_str,
     )
