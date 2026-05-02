@@ -19,4 +19,4 @@ class FoodItem(Base):
     phosphorus_mg: Mapped[float | None] = mapped_column(Numeric(7, 2), nullable=True)
     omega3_mg: Mapped[float | None] = mapped_column(Numeric(7, 2), nullable=True)
     taurine_mg: Mapped[float | None] = mapped_column(Numeric(7, 2), nullable=True)
-    source: Mapped[str] = mapped_column(String(50), default="USDA")
+    source: Mapped[str] = mapped_column(String(50), server_default="USDA")
