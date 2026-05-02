@@ -1,0 +1,173 @@
+import json
+import pytest
+from unittest.mock import AsyncMock, MagicMock
+from app.services.meal_service import MealService, RANGE_GUARD
+from app.models.food_item import FoodItem
+from app.models.stop_food import StopFood
+
+
+def make_service() -> MealService:
+    repo = AsyncMock()
+    svc = MealService(repo)
+    return svc
+
+
+def make_food_item(name: str, aliases: list[str], category: str,
+                   kcal: float, prot: float, fat: float, carb: float,
+                   ca: float = 0, p: float = 0, omega: float = 0, tau: float = 0) -> FoodItem:
+    fi = FoodItem()
+    fi.name = name
+    fi.name_aliases = json.dumps(aliases)
+    fi.category = category
+    fi.species = "all"
+    fi.kcal_per_100g = kcal
+    fi.protein_g = prot
+    fi.fat_g = fat
+    fi.carb_g = carb
+    fi.calcium_mg = ca
+    fi.phosphorus_mg = p
+    fi.omega3_mg = omega
+    fi.taurine_mg = tau
+    return fi
+
+
+def make_stop_food(name: str, level: int, species: str = "all",
+                   toxic: str = "", effect: str = "") -> StopFood:
+    sf = StopFood()
+    sf.product_name = name
+    sf.level = level
+    sf.species = species
+    sf.toxic_component = toxic
+    sf.clinical_effect = effect
+    return sf
+
+
+class TestGetRequiredMicros:
+    def test_dog_base(self):
+        svc = make_service()
+        micros = svc.get_required_micros("dog", [])
+        assert "omega3_mg" in micros
+        assert "calcium_mg" in micros
+        assert "taurine_mg" not in micros
+
+    def test_cat_has_taurine(self):
+        svc = make_service()
+        micros = svc.get_required_micros("cat", [])
+        assert "taurine_mg" in micros
+
+    def test_risk_boost_atopy(self):
+        svc = make_service()
+        micros = svc.get_required_micros("dog", ["atopy"])
+        assert micros.count("omega3_mg") == 1
+
+
+class TestCheckStopList:
+    def test_level1_exact(self):
+        svc = make_service()
+        stops = [make_stop_food("виноград", 1, toxic="танины", effect="почечная недостаточность")]
+        result = svc.check_stop_list("виноград", stops)
+        assert result.level == 1
+        assert result.toxic_component == "танины"
+
+    def test_level1_fuzzy(self):
+        svc = make_service()
+        stops = [make_stop_food("виноград", 1)]
+        result = svc.check_stop_list("виноградик", stops)
+        assert result.level == 1
+
+    def test_not_in_stoplist(self):
+        svc = make_service()
+        stops = [make_stop_food("виноград", 1)]
+        result = svc.check_stop_list("курица", stops)
+        assert result.level is None
+
+    def test_level2(self):
+        svc = make_service()
+        stops = [make_stop_food("молоко", 2)]
+        result = svc.check_stop_list("молоко", stops)
+        assert result.level == 2
+
+
+class TestSearchFoodItem:
+    def test_exact_match(self):
+        svc = make_service()
+        chicken = make_food_item("курица варёная", ["курочка", "chicken"], "meat",
+                                  165, 31, 3.6, 0)
+        result = svc.search_food_item("курица", [chicken])
+        assert result is not None
+        assert result.name == "курица варёная"
+
+    def test_alias_match(self):
+        svc = make_service()
+        chicken = make_food_item("курица варёная", ["курочка", "chicken"], "meat",
+                                  165, 31, 3.6, 0)
+        result = svc.search_food_item("курочка", [chicken])
+        assert result is not None
+
+    def test_no_match_below_threshold(self):
+        svc = make_service()
+        chicken = make_food_item("курица варёная", ["курочка"], "meat", 165, 31, 3.6, 0)
+        result = svc.search_food_item("говядина", [chicken])
+        assert result is None
+
+
+class TestCalculateGrams:
+    def test_clamp_min(self):
+        svc = make_service()
+        grams = svc.calculate_grams(gap_kcal=5, kcal_per_100g=165)
+        assert grams == 20
+
+    def test_clamp_max(self):
+        svc = make_service()
+        grams = svc.calculate_grams(gap_kcal=5000, kcal_per_100g=165)
+        assert grams == 200
+
+    def test_normal_case(self):
+        svc = make_service()
+        grams = svc.calculate_grams(gap_kcal=250, kcal_per_100g=165)
+        assert 70 <= grams <= 80
+
+
+class TestValidation:
+    def test_range_guard_pass(self):
+        svc = make_service()
+        assert svc._validate_range("meat", 200) is True
+
+    def test_range_guard_fail_high(self):
+        svc = make_service()
+        assert svc._validate_range("meat", 500) is False
+
+    def test_range_guard_fail_low(self):
+        svc = make_service()
+        assert svc._validate_range("vegetable", 200) is False
+
+    def test_math_guard_pass(self):
+        svc = make_service()
+        data = {"kcal": 165, "protein_g": 31, "fat_g": 3.6, "carb_g": 0}
+        assert svc._validate_math(data) is True
+
+    def test_math_guard_fail(self):
+        svc = make_service()
+        data = {"kcal": 500, "protein_g": 5, "fat_g": 1, "carb_g": 0}
+        assert svc._validate_math(data) is False
+
+    def test_math_guard_zero_kcal(self):
+        svc = make_service()
+        data = {"kcal": 0, "protein_g": 10, "fat_g": 1, "carb_g": 0}
+        assert svc._validate_math(data) is False
+
+
+class TestIsDone:
+    def test_done_when_90pct(self):
+        svc = make_service()
+        items = [{"kcal": 230, "protein_g": 28, "fat_g": 8, "carb_g": 10,
+                  "calcium_mg": 0, "phosphorus_mg": 0, "omega3_mg": 0, "taurine_mg": 0}]
+        target = {"kcal": 250, "protein_g": 30, "fat_g": 8}
+        assert svc.is_done(items, target) is True
+
+    def test_not_done_when_60pct(self):
+        svc = make_service()
+        items = [{"kcal": 150, "protein_g": 15, "fat_g": 4, "carb_g": 0,
+                  "calcium_mg": 0, "phosphorus_mg": 0, "omega3_mg": 0, "taurine_mg": 0}]
+        target = {"kcal": 250, "protein_g": 30, "fat_g": 8}
+        assert svc.is_done(items, target) is False
