@@ -22,7 +22,6 @@ class Pet(Base):
     is_neutered: Mapped[bool] = mapped_column(Boolean, default=False)
     activity_level: Mapped[str] = mapped_column(String(50), default="moderate")
     physio_status: Mapped[str] = mapped_column(String(50), default="normal")
-    food_category_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("food_categories.id"), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

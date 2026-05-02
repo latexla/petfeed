@@ -11,7 +11,9 @@ from app.models.breed_risk import BreedRisk
 from app.models.stop_food import StopFood
 from app.models.breed_registry import BreedRegistry
 from app.models.breed_knowledge import BreedKnowledge
+from app.models.food_item import FoodItem
 
 __all__ = ["User", "Pet", "FeatureFlag", "Ration", "NutritionKnowledge",
            "FeedingReminder", "AiRequest", "WeightHistory",
-           "FoodCategory", "BreedRisk", "StopFood", "BreedRegistry", "BreedKnowledge"]
+           "FoodCategory", "BreedRisk", "StopFood", "BreedRegistry",
+           "BreedKnowledge", "FoodItem"]
