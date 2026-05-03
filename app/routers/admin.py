@@ -2,13 +2,18 @@ from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from app.database import get_db
 from app.config import settings
 from app.models.user import User
 from app.models.pet import Pet
 from app.models.feature_flag import FeatureFlag
 from app.models.nutrition_knowledge import NutritionKnowledge
+from app.models.breed_registry import BreedRegistry
+from app.models.breed_knowledge import BreedKnowledge
+from app.models.breed_risk import BreedRisk
+from app.models.stop_food import StopFood
+from app.models.food_category import FoodCategory
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 templates = Jinja2Templates(directory="app/templates")
@@ -101,6 +106,76 @@ async def nutrition_list(request: Request, db: AsyncSession = Depends(get_db)):
         return RedirectResponse("/admin/login")
     records = (await db.execute(select(NutritionKnowledge).order_by(NutritionKnowledge.species, NutritionKnowledge.goal))).scalars().all()
     return templates.TemplateResponse(request, "admin/nutrition.html", {"records": records})
+
+
+@router.get("/seeds", response_class=HTMLResponse)
+async def seeds_page(request: Request, db: AsyncSession = Depends(get_db), msg: str = ""):
+    if not check_auth(request):
+        return RedirectResponse("/admin/login")
+    counts = {
+        "breed_registry":  (await db.execute(select(func.count(BreedRegistry.id)))).scalar(),
+        "breed_knowledge": (await db.execute(select(func.count(BreedKnowledge.id)))).scalar(),
+        "breed_risks":     (await db.execute(select(func.count(BreedRisk.id)))).scalar(),
+        "stop_foods":      (await db.execute(select(func.count(StopFood.id)))).scalar(),
+        "food_categories": (await db.execute(select(func.count(FoodCategory.id)))).scalar(),
+    }
+    return templates.TemplateResponse(request, "admin/seeds.html", {"counts": counts, "msg": msg})
+
+
+@router.post("/seeds/run/breeds")
+async def seed_breeds(request: Request, db: AsyncSession = Depends(get_db)):
+    if not check_auth(request):
+        return RedirectResponse("/admin/login")
+    from app.seeds.breed_seed import BREEDS
+    existing = (await db.execute(select(func.count(BreedRegistry.id)))).scalar()
+    if existing:
+        return RedirectResponse("/admin/seeds?msg=Породы+уже+загружены+(" + str(existing) + "+записей)", status_code=302)
+    for data in BREEDS:
+        db.add(BreedRegistry(**data))
+    await db.commit()
+    return RedirectResponse(f"/admin/seeds?msg=Породы+загружены:+{len(BREEDS)}+записей", status_code=302)
+
+
+@router.post("/seeds/run/breed-knowledge")
+async def seed_breed_knowledge(request: Request, db: AsyncSession = Depends(get_db)):
+    if not check_auth(request):
+        return RedirectResponse("/admin/login")
+    existing = (await db.execute(select(func.count(BreedKnowledge.id)))).scalar()
+    if existing:
+        return RedirectResponse("/admin/seeds?msg=База+знаний+уже+загружена+(" + str(existing) + "+записей)", status_code=302)
+    from app.seeds.breed_knowledge_seed import _build_records
+    records = _build_records()
+    for data in records:
+        db.add(BreedKnowledge(**data))
+    await db.commit()
+    return RedirectResponse(f"/admin/seeds?msg=База+знаний+загружена:+{len(records)}+записей", status_code=302)
+
+
+@router.post("/seeds/run/nutrition-v2")
+async def seed_nutrition_v2(request: Request, db: AsyncSession = Depends(get_db)):
+    if not check_auth(request):
+        return RedirectResponse("/admin/login")
+    from app.seeds.nutrition_seed_v2 import FOOD_CATEGORIES, BREED_RISKS, STOP_FOODS
+    cats_count = (await db.execute(select(func.count(FoodCategory.id)))).scalar()
+    risks_count = (await db.execute(select(func.count(BreedRisk.id)))).scalar()
+    stops_count = (await db.execute(select(func.count(StopFood.id)))).scalar()
+    added = 0
+    if not cats_count:
+        for data in FOOD_CATEGORIES:
+            db.add(FoodCategory(**data))
+        added += len(FOOD_CATEGORIES)
+    if not risks_count:
+        for data in BREED_RISKS:
+            db.add(BreedRisk(**data))
+        added += len(BREED_RISKS)
+    if not stops_count:
+        for data in STOP_FOODS:
+            db.add(StopFood(**data))
+        added += len(STOP_FOODS)
+    if added:
+        await db.commit()
+        return RedirectResponse(f"/admin/seeds?msg=Nutrition+v2+загружен:+{added}+записей", status_code=302)
+    return RedirectResponse("/admin/seeds?msg=Nutrition+v2+уже+загружен", status_code=302)
 
 
 @router.post("/nutrition/seed")
