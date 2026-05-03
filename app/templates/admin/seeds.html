@@ -13,32 +13,26 @@
   <div style="background:white;border-radius:8px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);display:flex;justify-content:space-between;align-items:center;">
     <div>
       <strong>1. breed_registry</strong>
-      <span style="font-size:13px;color:#666;margin-left:8px">Породы + псевдонимы</span>
-      <span class="badge {{ 'badge-on' if counts.breed_registry > 0 else 'badge-off' }}" style="margin-left:8px">
+      <span style="font-size:13px;color:#666;margin-left:8px">Породы + псевдонимы (ожидается 47)</span>
+      <span class="badge {{ 'badge-on' if counts.breed_registry >= 47 else 'badge-off' }}" style="margin-left:8px">
         {{ counts.breed_registry }} записей
       </span>
     </div>
     <form method="post" action="/admin/seeds/run/breeds">
-      <button class="btn {{ 'btn-primary' if counts.breed_registry == 0 else '' }}"
-              style="{{ 'background:#6b7280;color:white' if counts.breed_registry > 0 else '' }}">
-        {{ 'Загружено ✓' if counts.breed_registry > 0 else 'Загрузить →' }}
-      </button>
+      <button class="btn btn-primary">Синхронизировать</button>
     </form>
   </div>
 
   <div style="background:white;border-radius:8px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);display:flex;justify-content:space-between;align-items:center;">
     <div>
       <strong>2. breed_knowledge</strong>
-      <span style="font-size:13px;color:#666;margin-left:8px">MD-файлы пород (44 породы)</span>
-      <span class="badge {{ 'badge-on' if counts.breed_knowledge > 0 else 'badge-off' }}" style="margin-left:8px">
+      <span style="font-size:13px;color:#666;margin-left:8px">MD-файлы пород (ожидается 45)</span>
+      <span class="badge {{ 'badge-on' if counts.breed_knowledge >= 45 else 'badge-off' }}" style="margin-left:8px">
         {{ counts.breed_knowledge }} записей
       </span>
     </div>
     <form method="post" action="/admin/seeds/run/breed-knowledge">
-      <button class="btn {{ 'btn-primary' if counts.breed_knowledge == 0 else '' }}"
-              style="{{ 'background:#6b7280;color:white' if counts.breed_knowledge > 0 else '' }}">
-        {{ 'Загружено ✓' if counts.breed_knowledge > 0 else 'Загрузить →' }}
-      </button>
+      <button class="btn btn-primary">Синхронизировать</button>
     </form>
   </div>
 
@@ -46,17 +40,13 @@
     <div>
       <strong>3. breed_risks + stop_foods + food_categories</strong>
       <div style="margin-top:4px;display:flex;gap:8px;">
-        <span class="badge {{ 'badge-on' if counts.breed_risks > 0 else 'badge-off' }}">risks: {{ counts.breed_risks }}</span>
-        <span class="badge {{ 'badge-on' if counts.stop_foods > 0 else 'badge-off' }}">stops: {{ counts.stop_foods }}</span>
-        <span class="badge {{ 'badge-on' if counts.food_categories > 0 else 'badge-off' }}">cats: {{ counts.food_categories }}</span>
+        <span class="badge {{ 'badge-on' if counts.breed_risks >= 100 else 'badge-off' }}">risks: {{ counts.breed_risks }}</span>
+        <span class="badge {{ 'badge-on' if counts.stop_foods >= 15 else 'badge-off' }}">stops: {{ counts.stop_foods }}</span>
+        <span class="badge {{ 'badge-on' if counts.food_categories >= 4 else 'badge-off' }}">cats: {{ counts.food_categories }}</span>
       </div>
     </div>
     <form method="post" action="/admin/seeds/run/nutrition-v2">
-      {% set all_ok = counts.breed_risks > 0 and counts.stop_foods > 0 and counts.food_categories > 0 %}
-      <button class="btn {{ 'btn-primary' if not all_ok else '' }}"
-              style="{{ 'background:#6b7280;color:white' if all_ok else '' }}">
-        {{ 'Загружено ✓' if all_ok else 'Загрузить →' }}
-      </button>
+      <button class="btn btn-primary">Синхронизировать</button>
     </form>
   </div>
 

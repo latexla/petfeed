@@ -165,28 +165,38 @@ async def seed_breeds(request: Request, db: AsyncSession = Depends(get_db)):
     if not check_auth(request):
         return RedirectResponse("/admin/login")
     from app.seeds.breed_seed import BREEDS
-    existing = (await db.execute(select(func.count(BreedRegistry.id)))).scalar()
-    if existing:
-        return RedirectResponse("/admin/seeds?msg=Породы+уже+загружены+(" + str(existing) + "+записей)", status_code=302)
-    for data in BREEDS:
+    existing_names = set(
+        r for (r,) in (await db.execute(select(BreedRegistry.canonical_name))).all()
+    )
+    to_add = [b for b in BREEDS if b["canonical_name"] not in existing_names]
+    for data in to_add:
         db.add(BreedRegistry(**data))
-    await db.commit()
-    return RedirectResponse(f"/admin/seeds?msg=Породы+загружены:+{len(BREEDS)}+записей", status_code=302)
+    if to_add:
+        await db.commit()
+    return RedirectResponse(
+        f"/admin/seeds?msg=Породы:+добавлено+{len(to_add)},+пропущено+{len(BREEDS)-len(to_add)}",
+        status_code=302,
+    )
 
 
 @router.post("/seeds/run/breed-knowledge")
 async def seed_breed_knowledge(request: Request, db: AsyncSession = Depends(get_db)):
     if not check_auth(request):
         return RedirectResponse("/admin/login")
-    existing = (await db.execute(select(func.count(BreedKnowledge.id)))).scalar()
-    if existing:
-        return RedirectResponse("/admin/seeds?msg=База+знаний+уже+загружена+(" + str(existing) + "+записей)", status_code=302)
     from app.seeds.breed_knowledge_seed import _build_records
+    existing_names = set(
+        r for (r,) in (await db.execute(select(BreedKnowledge.canonical_name))).all()
+    )
     records = _build_records()
-    for data in records:
+    to_add = [r for r in records if r["canonical_name"] not in existing_names]
+    for data in to_add:
         db.add(BreedKnowledge(**data))
-    await db.commit()
-    return RedirectResponse(f"/admin/seeds?msg=База+знаний+загружена:+{len(records)}+записей", status_code=302)
+    if to_add:
+        await db.commit()
+    return RedirectResponse(
+        f"/admin/seeds?msg=База+знаний:+добавлено+{len(to_add)},+пропущено+{len(records)-len(to_add)}",
+        status_code=302,
+    )
 
 
 @router.post("/seeds/run/nutrition-v2")
@@ -194,26 +204,38 @@ async def seed_nutrition_v2(request: Request, db: AsyncSession = Depends(get_db)
     if not check_auth(request):
         return RedirectResponse("/admin/login")
     from app.seeds.nutrition_seed_v2 import FOOD_CATEGORIES, BREED_RISKS, STOP_FOODS
-    cats_count = (await db.execute(select(func.count(FoodCategory.id)))).scalar()
-    risks_count = (await db.execute(select(func.count(BreedRisk.id)))).scalar()
-    stops_count = (await db.execute(select(func.count(StopFood.id)))).scalar()
     added = 0
-    if not cats_count:
-        for data in FOOD_CATEGORIES:
+
+    existing_cats = set(
+        r for (r,) in (await db.execute(select(FoodCategory.name))).all()
+    )
+    for data in FOOD_CATEGORIES:
+        if data["name"] not in existing_cats:
             db.add(FoodCategory(**data))
-        added += len(FOOD_CATEGORIES)
-    if not risks_count:
-        for data in BREED_RISKS:
+            added += 1
+
+    existing_risks = set(
+        (r, k) for r, k in (await db.execute(select(BreedRisk.breed_name, BreedRisk.risk_key))).all()
+    )
+    for data in BREED_RISKS:
+        if (data["breed_name"], data["risk_key"]) not in existing_risks:
             db.add(BreedRisk(**data))
-        added += len(BREED_RISKS)
-    if not stops_count:
-        for data in STOP_FOODS:
+            added += 1
+
+    existing_stops = set(
+        r for (r,) in (await db.execute(select(StopFood.product_name))).all()
+    )
+    for data in STOP_FOODS:
+        if data["product_name"] not in existing_stops:
             db.add(StopFood(**data))
-        added += len(STOP_FOODS)
+            added += 1
+
     if added:
         await db.commit()
-        return RedirectResponse(f"/admin/seeds?msg=Nutrition+v2+загружен:+{added}+записей", status_code=302)
-    return RedirectResponse("/admin/seeds?msg=Nutrition+v2+уже+загружен", status_code=302)
+    return RedirectResponse(
+        f"/admin/seeds?msg=Nutrition+v2:+добавлено+{added}+новых+записей",
+        status_code=302,
+    )
 
 
 @router.post("/nutrition/seed")
