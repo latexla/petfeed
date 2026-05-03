@@ -1,6 +1,7 @@
 import logging
 import ssl
 from datetime import datetime
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.config import settings
@@ -18,6 +19,12 @@ _bot = None
 def set_bot(bot):
     global _bot
     _bot = bot
+
+
+def _reminder_keyboard(pet_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🍽 Что дать?", callback_data=f"meal_start:{pet_id}")]
+    ])
 
 
 async def check_and_send_reminders():
@@ -44,7 +51,8 @@ async def check_and_send_reminders():
                 await _bot.send_message(
                     chat_id=user.telegram_id,
                     text=f"Время кормить <b>{pet.name}</b>!\n\nНе забудь про правильную порцию.",
-                    parse_mode="HTML"
+                    parse_mode="HTML",
+                    reply_markup=_reminder_keyboard(pet.id),
                 )
             except Exception as e:
                 logger.warning(f"Reminder send failed for user {user.telegram_id}: {e}")
