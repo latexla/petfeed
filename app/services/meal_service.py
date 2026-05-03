@@ -35,6 +35,25 @@ MICRO_PER_1000KCAL: dict[str, dict[str, float]] = {
     "dog":  {"calcium_mg": 1250, "phosphorus_mg": 1000, "omega3_mg": 110},
     "cat":  {"taurine_mg": 500,  "omega3_mg": 110, "calcium_mg": 720, "phosphorus_mg": 640},
 }
+
+# Maximum tolerable levels per 1000 kcal (NRC 2006 / AAFCO 2024)
+# Source: NRC "Nutrient Requirements of Dogs and Cats" 2006; AAFCO Official Publication 2024
+MICRO_MAX_PER_1000KCAL: dict[str, dict[str, float]] = {
+    "dog": {
+        "calcium_mg":    4500,   # NRC MTL; large-breed puppies: 2500 (checked separately)
+        "phosphorus_mg": 4000,   # NRC MTL; Ca:P must stay ≤ 2:1
+        "calcium_mg_puppy_large": 2500,  # NRC MTL for growing dogs >25 kg adult weight
+    },
+    "cat": {
+        "calcium_mg":    4500,   # NRC MTL adult cats
+        "phosphorus_mg": 4400,   # NRC MTL; restrict to <1000 in CKD
+        "magnesium_mg":  100,    # AAFCO max per 1000 kcal (~0.10 % DM); struvite risk
+    },
+}
+
+# Maximum daily calorie excess vs calculated MER (fraction above 1.0)
+# Beyond this → obesity / pancreatitis risk
+MER_MAX_OVERAGE: float = 0.20  # +20 %
 EXAMPLES_BY_TYPE: dict[str, str] = {
     "natural":  "курица, говядина, гречка, морковь, яйцо",
     "prepared": "Royal Canin, Purina Pro Plan, Hills",
@@ -222,6 +241,85 @@ class MealService:
                 elif micro == "taurine_mg":
                     tips.append("Не хватает таурина — обязателен для кошек в натуральном рационе")
         return ". ".join(tips) if tips else ""
+
+    def get_excess_warnings(
+        self,
+        totals: dict,
+        target_kcal: float,
+        species: str,
+        age_months: int,
+        weight_kg: float,
+    ) -> list[str]:
+        """Return warning strings when meal totals exceed safe upper limits.
+
+        Limits source: NRC 2006, AAFCO 2024.
+        totals      — суммарные нутриенты одного приёма пищи (ккал + мг).
+        target_kcal — целевая калорийность этого приёма пищи (daily_calories / meals_per_day).
+        """
+        warnings: list[str] = []
+        meal_kcal = totals.get("kcal", 0)
+        if meal_kcal <= 0:
+            return warnings
+
+        # Scale meal totals to per-1000-kcal for NRC/AAFCO limit comparison
+        factor = 1000 / meal_kcal
+
+        ca_per_1000 = totals.get("calcium_mg", 0) * factor
+        p_per_1000  = totals.get("phosphorus_mg", 0) * factor
+        mg_per_1000 = totals.get("magnesium_mg", 0) * factor
+
+        maxes = MICRO_MAX_PER_1000KCAL.get(species, {})
+
+        # ── Calcium ────────────────────────────────────────────────────────
+        ca_limit = maxes.get("calcium_mg", 0)
+        is_large_breed_puppy = age_months < 12 and weight_kg > 15
+        if is_large_breed_puppy:
+            ca_limit = maxes.get("calcium_mg_puppy_large", ca_limit)
+
+        if ca_limit and ca_per_1000 > ca_limit:
+            tip = (
+                f"⚠️ Кальций превышен: {ca_per_1000:.0f} мг/1000 ккал "
+                f"(макс. {ca_limit:.0f} мг/1000 ккал, NRC 2006)"
+            )
+            if is_large_breed_puppy:
+                tip += " — особенно опасно для щенков крупных пород (риск остеохондроза)"
+            warnings.append(tip)
+
+        # ── Phosphorus ─────────────────────────────────────────────────────
+        p_limit = maxes.get("phosphorus_mg", 0)
+        if p_limit and p_per_1000 > p_limit:
+            warnings.append(
+                f"⚠️ Фосфор превышен: {p_per_1000:.0f} мг/1000 ккал "
+                f"(макс. {p_limit:.0f} мг/1000 ккал, NRC 2006)"
+            )
+
+        # ── Ca:P ratio ─────────────────────────────────────────────────────
+        ca_abs = totals.get("calcium_mg", 0)
+        p_abs  = totals.get("phosphorus_mg", 0)
+        if p_abs > 0 and ca_abs / p_abs > 2.0:
+            warnings.append(
+                f"⚠️ Ca:P = {ca_abs/p_abs:.1f}:1 — превышает максимум 2:1 "
+                "(AAFCO); снизь кальциевые добавки"
+            )
+
+        # ── Magnesium (cats only — struvite risk) ──────────────────────────
+        if species == "cat":
+            mg_limit = maxes.get("magnesium_mg", 0)
+            if mg_limit and mg_per_1000 > mg_limit:
+                warnings.append(
+                    f"⚠️ Магний превышен: {mg_per_1000:.0f} мг/1000 ккал "
+                    f"(макс. {mg_limit:.0f} мг/1000 ккал, AAFCO) — риск струвитных уролитов"
+                )
+
+        # ── Calorie excess vs per-meal target ──────────────────────────────
+        if target_kcal > 0 and meal_kcal > target_kcal * (1 + MER_MAX_OVERAGE):
+            pct = round((meal_kcal / target_kcal - 1) * 100)
+            warnings.append(
+                f"⚠️ Калорийность приёма пищи превышает норму на {pct}% "
+                f"({meal_kcal:.0f} vs {target_kcal:.0f} ккал) — риск ожирения"
+            )
+
+        return warnings
 
     # ── Private helpers ─────────────────────────────────────────────
 

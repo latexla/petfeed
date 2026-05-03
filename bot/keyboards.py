@@ -155,6 +155,22 @@ def meal_progress_keyboard(pet_id: int) -> InlineKeyboardMarkup:
     ])
 
 
+def meal_after_summary_keyboard(pet_id: int, pet_name: str = "") -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton(text="🗑 Удалить этот приём", callback_data=f"meal_discard:{pet_id}")],
+        [InlineKeyboardButton(text="← Главное меню",        callback_data="meal_to_menu")],
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def meal_resume_keyboard(pet_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="▶ Продолжить",     callback_data=f"meal_resume:{pet_id}")],
+        [InlineKeyboardButton(text="🗑 Начать заново",  callback_data=f"meal_new:{pet_id}")],
+        [InlineKeyboardButton(text="← Отмена",          callback_data="meal_cancel")],
+    ])
+
+
 def meal_l2_keyboard(product_name: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Да, добавить",

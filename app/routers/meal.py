@@ -167,6 +167,13 @@ async def get_summary(pet_id: int, request: Request,
         if totals.get(k, 0) < v * 0.9
     }
     tip = svc.get_summary_tip(totals, target, required_micros)
+    excess_warnings = svc.get_excess_warnings(
+        totals=totals,
+        target_kcal=target.get("kcal", 0),
+        species=pet.species,
+        age_months=pet.age_months,
+        weight_kg=float(pet.weight_kg),
+    )
 
     return {
         "items": session["items"],
@@ -175,8 +182,18 @@ async def get_summary(pet_id: int, request: Request,
         "ca_p_ratio": ca_p_ratio,
         "gaps": gaps,
         "tip": tip,
+        "excess_warnings": excess_warnings,
         "required_micros": required_micros,
     }
+
+
+@router.get("/session-check/{pet_id}")
+async def check_session(pet_id: int, request: Request,
+                        db: AsyncSession = Depends(get_db)):
+    telegram_id = request.state.telegram_id
+    session = await MealRepository(db).get_session(telegram_id, pet_id)
+    items_count = len(session.get("items", [])) if session else 0
+    return {"has_session": session is not None, "items_count": items_count}
 
 
 @router.delete("/reset/{pet_id}")

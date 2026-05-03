@@ -157,6 +157,113 @@ class TestValidation:
         assert svc._validate_math(data) is False
 
 
+class TestGetExcessWarnings:
+    def _totals(self, kcal=300, ca=0, p=0, mg=0):
+        return {
+            "kcal": kcal,
+            "calcium_mg": ca,
+            "phosphorus_mg": p,
+            "magnesium_mg": mg,
+            "protein_g": 0, "fat_g": 0, "carb_g": 0,
+            "omega3_mg": 0, "taurine_mg": 0,
+        }
+
+    def test_no_warnings_normal(self):
+        svc = make_service()
+        totals = self._totals(kcal=300, ca=375, p=300)  # 1250/1000/300 = within limits
+        warnings = svc.get_excess_warnings(
+            totals=totals, target_kcal=300,
+            species="dog", age_months=24, weight_kg=20,
+        )
+        assert warnings == []
+
+    def test_calcium_exceeded_dog_adult(self):
+        svc = make_service()
+        # 4500 mg/1000 kcal limit; 300 kcal meal → limit = 1350 mg
+        totals = self._totals(kcal=300, ca=1400, p=300)
+        warnings = svc.get_excess_warnings(
+            totals=totals, target_kcal=300,
+            species="dog", age_months=24, weight_kg=20,
+        )
+        assert any("Кальций" in w for w in warnings)
+
+    def test_calcium_exceeded_large_breed_puppy(self):
+        svc = make_service()
+        # Puppy large breed: 2500 mg/1000 kcal; 300 kcal meal → limit = 750 mg
+        totals = self._totals(kcal=300, ca=800, p=300)
+        warnings = svc.get_excess_warnings(
+            totals=totals, target_kcal=300,
+            species="dog", age_months=6, weight_kg=20,
+        )
+        assert any("Кальций" in w for w in warnings)
+        assert any("щенков крупных пород" in w for w in warnings)
+
+    def test_calcium_ok_small_puppy(self):
+        svc = make_service()
+        # Small puppy (<15 kg) uses adult limit 4500 mg/1000 kcal
+        totals = self._totals(kcal=300, ca=800, p=300)
+        warnings = svc.get_excess_warnings(
+            totals=totals, target_kcal=300,
+            species="dog", age_months=6, weight_kg=5,
+        )
+        assert not any("Кальций" in w for w in warnings)
+
+    def test_ca_p_ratio_exceeded(self):
+        svc = make_service()
+        # Ca:P = 3:1 > 2:1 max
+        totals = self._totals(kcal=300, ca=900, p=300)
+        warnings = svc.get_excess_warnings(
+            totals=totals, target_kcal=300,
+            species="dog", age_months=24, weight_kg=20,
+        )
+        assert any("Ca:P" in w for w in warnings)
+
+    def test_magnesium_exceeded_cat(self):
+        svc = make_service()
+        # Cat Mg limit: 100 mg/1000 kcal; 300 kcal meal → limit = 30 mg
+        totals = self._totals(kcal=300, ca=0, p=0, mg=50)
+        warnings = svc.get_excess_warnings(
+            totals=totals, target_kcal=300,
+            species="cat", age_months=24, weight_kg=4,
+        )
+        assert any("Магний" in w for w in warnings)
+
+    def test_magnesium_dog_not_flagged(self):
+        svc = make_service()
+        totals = self._totals(kcal=300, ca=0, p=0, mg=200)
+        warnings = svc.get_excess_warnings(
+            totals=totals, target_kcal=300,
+            species="dog", age_months=24, weight_kg=20,
+        )
+        assert not any("Магний" in w for w in warnings)
+
+    def test_calorie_excess_flagged(self):
+        svc = make_service()
+        totals = self._totals(kcal=400)  # target 300, excess = 33%
+        warnings = svc.get_excess_warnings(
+            totals=totals, target_kcal=300,
+            species="dog", age_months=24, weight_kg=20,
+        )
+        assert any("Калорийность" in w for w in warnings)
+
+    def test_calorie_within_20pct_ok(self):
+        svc = make_service()
+        totals = self._totals(kcal=350)  # target 300, excess = 16.7% < 20%
+        warnings = svc.get_excess_warnings(
+            totals=totals, target_kcal=300,
+            species="dog", age_months=24, weight_kg=20,
+        )
+        assert not any("Калорийность" in w for w in warnings)
+
+    def test_empty_totals_no_crash(self):
+        svc = make_service()
+        warnings = svc.get_excess_warnings(
+            totals=self._totals(kcal=0), target_kcal=300,
+            species="dog", age_months=24, weight_kg=20,
+        )
+        assert warnings == []
+
+
 class TestIsDone:
     def test_done_when_90pct(self):
         svc = make_service()

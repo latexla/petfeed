@@ -4,7 +4,8 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from bot.states import MealBuilder
 from bot.keyboards import (
-    meal_type_keyboard, meal_progress_keyboard, meal_l2_keyboard, main_menu_keyboard
+    meal_type_keyboard, meal_progress_keyboard, meal_l2_keyboard,
+    meal_after_summary_keyboard, meal_resume_keyboard, main_menu_keyboard,
 )
 from app.config import settings
 
@@ -28,6 +29,25 @@ EXAMPLES = {
 async def start_meal_builder(callback: CallbackQuery, state: FSMContext):
     pet_id = int(callback.data.split(":")[1])
     await state.update_data(meal_pet_id=pet_id)
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{settings.BACKEND_URL}/v1/meal/session-check/{pet_id}",
+            headers={"X-Telegram-Id": str(callback.from_user.id)},
+        )
+    check = resp.json() if resp.status_code == 200 else {}
+    items_count = check.get("items_count", 0)
+
+    if items_count > 0:
+        await state.set_state(MealBuilder.waiting_type)
+        await callback.message.edit_text(
+            f"У тебя есть незавершённый приём пищи (<b>{items_count} продуктов</b>).\n"
+            "Продолжить или начать заново?",
+            parse_mode="HTML",
+            reply_markup=meal_resume_keyboard(pet_id),
+        )
+        return
+
     await state.set_state(MealBuilder.waiting_type)
     await callback.message.edit_text(
         "Чем будешь кормить?",
@@ -219,6 +239,8 @@ async def show_summary(callback: CallbackQuery, state: FSMContext):
             lines.append(fmt_line(labels[micro], micro, "мг"))
     if r.get("tip"):
         lines.append(f"\n💡 {r['tip']}")
+    for warn in r.get("excess_warnings", []):
+        lines.append(warn)
     lines.append("\n<i>⚠️ Расчёт приблизительный. Проконсультируйся с ветеринаром.</i>")
 
     data = await state.get_data()
@@ -226,7 +248,7 @@ async def show_summary(callback: CallbackQuery, state: FSMContext):
     await state.set_state(None)
     await callback.message.edit_text(
         "\n".join(lines), parse_mode="HTML",
-        reply_markup=main_menu_keyboard(pet_name)
+        reply_markup=meal_after_summary_keyboard(pet_id, pet_name),
     )
 
 
@@ -258,5 +280,56 @@ async def reset_meal(callback: CallbackQuery, state: FSMContext):
     await state.set_state(MealBuilder.waiting_type)
     await callback.message.edit_text(
         "Начнём заново. Чем будешь кормить?",
+        reply_markup=meal_type_keyboard()
+    )
+
+
+@router.callback_query(F.data.startswith("meal_discard:"))
+async def discard_meal(callback: CallbackQuery, state: FSMContext):
+    """Delete meal session after viewing summary (user was just exploring)."""
+    pet_id = int(callback.data.split(":")[1])
+    async with httpx.AsyncClient() as client:
+        await client.delete(
+            f"{settings.BACKEND_URL}/v1/meal/reset/{pet_id}",
+            headers={"X-Telegram-Id": str(callback.from_user.id)},
+        )
+    data = await state.get_data()
+    pet_name = data.get("active_pet_name", "")
+    await callback.answer("Приём пищи удалён")
+    await callback.message.edit_text(
+        "Приём пищи удалён.",
+        reply_markup=main_menu_keyboard(pet_name),
+    )
+
+
+@router.callback_query(F.data == "meal_to_menu")
+async def meal_to_menu(callback: CallbackQuery, state: FSMContext):
+    """Return to main menu keeping the session intact."""
+    data = await state.get_data()
+    pet_name = data.get("active_pet_name", "")
+    await callback.message.edit_text(
+        "Главное меню", reply_markup=main_menu_keyboard(pet_name)
+    )
+
+
+@router.callback_query(F.data.startswith("meal_resume:"))
+async def resume_meal(callback: CallbackQuery, state: FSMContext):
+    """Continue existing meal session."""
+    await state.set_state(MealBuilder.waiting_product)
+    await callback.message.edit_text("Добавляй следующий продукт:")
+
+
+@router.callback_query(F.data.startswith("meal_new:"))
+async def new_meal_discard_old(callback: CallbackQuery, state: FSMContext):
+    """Discard existing session and start fresh."""
+    pet_id = int(callback.data.split(":")[1])
+    async with httpx.AsyncClient() as client:
+        await client.delete(
+            f"{settings.BACKEND_URL}/v1/meal/reset/{pet_id}",
+            headers={"X-Telegram-Id": str(callback.from_user.id)},
+        )
+    await state.set_state(MealBuilder.waiting_type)
+    await callback.message.edit_text(
+        "Чем будешь кормить?",
         reply_markup=meal_type_keyboard()
     )
