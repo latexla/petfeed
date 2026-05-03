@@ -23,6 +23,11 @@ ACTIVITY_LABELS = {
 }
 
 
+@router.callback_query(PetCreation.waiting_species, F.data == "species:coming_soon")
+async def species_coming_soon(callback: CallbackQuery):
+    await callback.answer("Этот вид животных появится в следующем обновлении 🔜", show_alert=False)
+
+
 @router.callback_query(PetCreation.waiting_species, F.data.startswith("species:"))
 async def process_species(callback: CallbackQuery, state: FSMContext):
     species = callback.data.split(":")[1]

@@ -4,15 +4,15 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 def species_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="Кошка",  callback_data="species:cat"),
-            InlineKeyboardButton(text="Собака", callback_data="species:dog"),
+            InlineKeyboardButton(text="🐱 Кошка",  callback_data="species:cat"),
+            InlineKeyboardButton(text="🐶 Собака", callback_data="species:dog"),
         ],
         [
-            InlineKeyboardButton(text="Грызун",  callback_data="species:rodent"),
-            InlineKeyboardButton(text="Птица",   callback_data="species:bird"),
+            InlineKeyboardButton(text="🐹 Грызун — скоро",   callback_data="species:coming_soon"),
+            InlineKeyboardButton(text="🐦 Птица — скоро",    callback_data="species:coming_soon"),
         ],
         [
-            InlineKeyboardButton(text="Рептилия", callback_data="species:reptile"),
+            InlineKeyboardButton(text="🦎 Рептилия — скоро", callback_data="species:coming_soon"),
         ],
     ])
 
