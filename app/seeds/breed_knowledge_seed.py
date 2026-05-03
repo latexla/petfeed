@@ -15,9 +15,15 @@ from app.models.breed_knowledge import BreedKnowledge
 FILES_DIR = Path(__file__).parent.parent.parent / "Нормы кормления" / "files"
 
 
-def _parse_breed_file(path: Path, canonical_name: str) -> dict:
+def _parse_breed_file(path: Path, canonical_name: str, species: str = "dog") -> dict:
     content = path.read_text(encoding="utf-8")
     lines = content.split("\n")
+
+    # Auto-detect species from file header
+    for line in lines[:5]:
+        if "(кошки)" in line or "(кошка)" in line:
+            species = "cat"
+            break
 
     canonical_name_ru = canonical_name
     for line in lines[:5]:
@@ -59,7 +65,7 @@ def _parse_breed_file(path: Path, canonical_name: str) -> dict:
     return {
         "canonical_name": canonical_name,
         "canonical_name_ru": canonical_name_ru,
-        "species": "dog",
+        "species": species,
         "weight_range": weight_range,
         "key_risks": key_risks,
         "adult_meals_per_day": adult_meals,
@@ -82,35 +88,57 @@ def _build_records() -> list[dict]:
     })
 
     breed_map = {
-        "02_Labrador_Retriever.md": "Labrador Retriever",
-        "03_German_Shepherd.md": "German Shepherd",
-        "04_French_Bulldog.md": "French Bulldog",
-        "05_Siberian_Husky.md": "Siberian Husky",
-        "06_Golden_Retriever.md": "Golden Retriever",
-        "07_Yorkshire_Terrier.md": "Yorkshire Terrier",
-        "08_Chihuahua.md": "Chihuahua",
-        "09_Pug.md": "Pug",
-        "10_Pomeranian.md": "Pomeranian",
-        "11_Beagle.md": "Beagle",
-        "12_Dobermann.md": "Dobermann",
-        "13_Rottweiler.md": "Rottweiler",
-        "14_Boxer.md": "Boxer",
-        "15_Dalmatian.md": "Dalmatian",
-        "16_Australian_Shepherd.md": "Australian Shepherd",
-        "17_Border_Collie.md": "Border Collie",
-        "18_Dachshund.md": "Dachshund",
-        "19_Maltese.md": "Maltese",
-        "20_Samoyed.md": "Samoyed",
-        "21_Shih_Tzu.md": "Shih Tzu",
-        "22_Poodle.md": "Poodle",
-        "23_Corgi.md": "Corgi",
-        "24_English_Bulldog.md": "English Bulldog",
-        "25_Alaskan_Malamute.md": "Alaskan Malamute",
+        # Dogs
+        "02_Labrador_Retriever.md":  ("Labrador Retriever",        "dog"),
+        "03_German_Shepherd.md":     ("German Shepherd",           "dog"),
+        "04_French_Bulldog.md":      ("French Bulldog",            "dog"),
+        "05_Siberian_Husky.md":      ("Siberian Husky",            "dog"),
+        "06_Golden_Retriever.md":    ("Golden Retriever",          "dog"),
+        "07_Yorkshire_Terrier.md":   ("Yorkshire Terrier",         "dog"),
+        "08_Chihuahua.md":           ("Chihuahua",                 "dog"),
+        "09_Pug.md":                 ("Pug",                       "dog"),
+        "10_Pomeranian.md":          ("Pomeranian",                "dog"),
+        "11_Beagle.md":              ("Beagle",                    "dog"),
+        "12_Dobermann.md":           ("Dobermann",                 "dog"),
+        "13_Rottweiler.md":          ("Rottweiler",                "dog"),
+        "14_Boxer.md":               ("Boxer",                     "dog"),
+        "15_Dalmatian.md":           ("Dalmatian",                 "dog"),
+        "16_Australian_Shepherd.md": ("Australian Shepherd",       "dog"),
+        "17_Border_Collie.md":       ("Border Collie",             "dog"),
+        "18_Dachshund.md":           ("Dachshund",                 "dog"),
+        "19_Maltese.md":             ("Maltese",                   "dog"),
+        "20_Samoyed.md":             ("Samoyed",                   "dog"),
+        "21_Shih_Tzu.md":            ("Shih Tzu",                  "dog"),
+        "22_Poodle.md":              ("Poodle",                    "dog"),
+        "23_Corgi.md":               ("Corgi",                     "dog"),
+        "24_English_Bulldog.md":     ("English Bulldog",           "dog"),
+        "25_Alaskan_Malamute.md":    ("Alaskan Malamute",          "dog"),
+        # Cats
+        "26_Persian.md":             ("Persian",                   "cat"),
+        "27_Maine_Coon.md":          ("Maine Coon",                "cat"),
+        "28_Ragdoll.md":             ("Ragdoll",                   "cat"),
+        "29_British_Shorthair.md":   ("British Shorthair",         "cat"),
+        "30_Siamese.md":             ("Siamese",                   "cat"),
+        "31_Scottish_Fold.md":       ("Scottish Fold",             "cat"),
+        "32_Sphynx.md":              ("Sphynx",                    "cat"),
+        "33_Bengal.md":              ("Bengal",                    "cat"),
+        "34_Russian_Blue.md":        ("Russian Blue",              "cat"),
+        "35_Norwegian_Forest_Cat.md":("Norwegian Forest Cat",      "cat"),
+        "36_Abyssinian.md":          ("Abyssinian",                "cat"),
+        "37_Devon_Rex.md":           ("Devon Rex",                 "cat"),
+        "38_Birman.md":              ("Birman",                    "cat"),
+        "39_Burmese.md":             ("Burmese",                   "cat"),
+        "40_Turkish_Angora.md":      ("Turkish Angora",            "cat"),
+        "41_Oriental_Shorthair.md":  ("Oriental Shorthair",        "cat"),
+        "42_Exotic_Shorthair.md":    ("Exotic Shorthair",          "cat"),
+        "43_American_Shorthair.md":  ("American Shorthair",        "cat"),
+        "44_Siberian.md":            ("Siberian",                  "cat"),
+        "45_Tonkinese.md":           ("Tonkinese",                 "cat"),
     }
 
-    for fname, canonical_name in breed_map.items():
+    for fname, (canonical_name, species) in breed_map.items():
         path = FILES_DIR / fname
-        records.append(_parse_breed_file(path, canonical_name))
+        records.append(_parse_breed_file(path, canonical_name, species))
 
     return records
 

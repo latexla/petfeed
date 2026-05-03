@@ -38,6 +38,9 @@ class MERCalculator:
             return 1.3
         if self.goal == "lose" or "obesity" in self.breed_risks:
             return 1.4
+        # Sphynx: no fur → higher heat loss → elevated caloric need
+        if "high_caloric_need" in self.breed_risks:
+            return 1.8 if not self.is_neutered else 1.6
         if self.is_neutered:
             return 1.6
         return 1.8
@@ -82,6 +85,35 @@ class MERCalculator:
             notes.append("Глюкозамин + хондроитин + Омега-3 для суставов (пателлярная люксация)")
         if self.activity_level == "working":
             notes.append("Рабочая собака: потребность в калориях существенно выше стандарта")
+        # Cat-specific recommendations
+        if "hcm" in self.breed_risks:
+            notes.append("Порода с риском HCM: при натуральном рационе добавляйте таурин 250–500 мг/день; Омега-3 40–100 мг/кг/день; рекомендуется ЭхоКГ-скрининг")
+        if "pkd" in self.breed_risks:
+            notes.append("Порода с риском поликистоза почек (PKD): рекомендуется генетический тест; при ХБП ограничьте фосфор и обеспечьте влажный корм")
+        if "high_caloric_need" in self.breed_risks:
+            notes.append("Сфинкс: повышенная потребность в калориях из-за отсутствия шерсти (коэффициент 1,6–1,8 × RER)")
+        if "taurine_risk" in self.breed_risks:
+            notes.append("При натуральном рационе таурин обязателен (250–500 мг/день): предотвращает кардиомиопатию и слепоту")
+        if "ocd_joints" in self.breed_risks:
+            notes.append("Порода с риском остеохондродисплазии: Омега-3 обязательны; контролируйте вес — каждый лишний кг нагружает суставы")
+        if "renal_amyloidosis" in self.breed_risks:
+            notes.append("Порода с риском почечного амилоидоза: ежегодная биохимия с 5 лет; влажный корм; ограничение фосфора при ХБП")
+        if "liver_amyloidosis" in self.breed_risks:
+            notes.append("Порода с риском гепатического амилоидоза: высококачественный лёгкоусвояемый белок; антиоксиданты (вит. E)")
+        if "hypokalemia" in self.breed_risks:
+            notes.append("Порода с риском гипокалиемии: обеспечьте калий ≥0,6% DM в рационе; при мышечной слабости — биохимия крови")
+        if "diabetes_risk" in self.breed_risks:
+            notes.append("Порода с повышенным риском диабета: контролируйте BCS; предпочтителен низкоуглеводный влажный корм (<12% ME из углеводов)")
+        if "flutd_risk" in self.breed_risks:
+            notes.append("Порода с риском стресс-цистита (FLUTD): влажный корм ≥50% рациона; фонтанчик для воды; ограничьте магний <0,10% DM")
+        if "pra" in self.breed_risks:
+            notes.append("Порода с риском атрофии сетчатки (PRA): таурин и DHA (Омега-3) обязательны при натуральном рационе")
+        if "ibd" in self.breed_risks:
+            notes.append("Порода с риском воспалительной болезни кишечника: высокая усвояемость корма; Омега-3; пробиотики при хронической диарее")
+        if "obesity" in self.breed_risks and "high_caloric_need" not in self.breed_risks:
+            notes.append("Порода склонна к ожирению: взвешивайте кошку раз в 2 недели; цель BCS 4–5/9; строго по расписанию")
+        if "slow_maturation" in self.breed_risks:
+            notes.append("Медленно созревающая порода: рацион роста до 18 месяцев; не переводить на взрослую норму раньше срока")
         return notes
 
 

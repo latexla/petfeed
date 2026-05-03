@@ -91,6 +91,20 @@ BREEDS = [
      "species": "cat", "aliases": ["экзот", "экзотик", "экзотическая"]},
     {"canonical_name": "Cornish Rex", "canonical_name_ru": "Корниш-рекс",
      "species": "cat", "aliases": ["корниш", "корниш рекс"]},
+    {"canonical_name": "Ragdoll", "canonical_name_ru": "Рэгдолл",
+     "species": "cat", "aliases": ["рагдол", "рэгдол", "рэгдолл"]},
+    {"canonical_name": "Birman", "canonical_name_ru": "Бирманская",
+     "species": "cat", "aliases": ["бирма", "бирманская", "священная бирма"]},
+    {"canonical_name": "Devon Rex", "canonical_name_ru": "Девон-рекс",
+     "species": "cat", "aliases": ["девон", "девон рекс"]},
+    {"canonical_name": "Siberian", "canonical_name_ru": "Сибирская",
+     "species": "cat", "aliases": ["сибирская", "сибирский"]},
+    {"canonical_name": "Oriental Shorthair", "canonical_name_ru": "Ориентальная",
+     "species": "cat", "aliases": ["ориентал", "ориентальная", "ориент"]},
+    {"canonical_name": "American Shorthair", "canonical_name_ru": "Американская короткошёрстная",
+     "species": "cat", "aliases": ["американская", "американец", "american shorthair"]},
+    {"canonical_name": "Tonkinese", "canonical_name_ru": "Тонкинская",
+     "species": "cat", "aliases": ["тонкин", "тонкинская"]},
 ]
 
 
