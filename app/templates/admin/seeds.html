@@ -7,88 +7,201 @@
 <div class="alert alert-success">{{ msg }}</div>
 {% endif %}
 
-<div style="display:grid;gap:16px;">
+<!-- ── Кнопки загрузки ───────────────────────────────────────────── -->
+<div style="display:grid;gap:12px;margin-bottom:32px;">
 
-  <div style="background:white;border-radius:8px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,.1)">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-      <div>
-        <h2 style="font-size:16px;margin-bottom:4px">1. Реестр пород</h2>
-        <p style="font-size:13px;color:#666;margin-bottom:8px">Таблица <code>breed_registry</code> — названия пород, псевдонимы, вид животного (собаки + кошки)</p>
-        <span class="badge {% if counts.breed_registry > 0 %}badge-on{% else %}badge-off{% endif %}">
-          {{ counts.breed_registry }} записей
-        </span>
-      </div>
-      <form method="post" action="/admin/seeds/run/breeds"
-            onsubmit="return counts_{{ counts.breed_registry }} > 0 ? confirm('Уже загружено. Запустить повторно?') : true">
-        <button class="btn btn-primary" {% if counts.breed_registry > 0 %}style="background:#6b7280"{% endif %}>
-          {% if counts.breed_registry > 0 %}Загружено ✓{% else %}Загрузить →{% endif %}
-        </button>
-      </form>
+  <div style="background:white;border-radius:8px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);display:flex;justify-content:space-between;align-items:center;">
+    <div>
+      <strong>1. breed_registry</strong>
+      <span style="font-size:13px;color:#666;margin-left:8px">Породы + псевдонимы</span>
+      <span class="badge {{ 'badge-on' if counts.breed_registry > 0 else 'badge-off' }}" style="margin-left:8px">
+        {{ counts.breed_registry }} записей
+      </span>
     </div>
+    <form method="post" action="/admin/seeds/run/breeds">
+      <button class="btn {{ 'btn-primary' if counts.breed_registry == 0 else '' }}"
+              style="{{ 'background:#6b7280;color:white' if counts.breed_registry > 0 else '' }}">
+        {{ 'Загружено ✓' if counts.breed_registry > 0 else 'Загрузить →' }}
+      </button>
+    </form>
   </div>
 
-  <div style="background:white;border-radius:8px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,.1)">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-      <div>
-        <h2 style="font-size:16px;margin-bottom:4px">2. База знаний пород</h2>
-        <p style="font-size:13px;color:#666;margin-bottom:8px">Таблица <code>breed_knowledge</code> — полный контент MD-файлов (24 породы собак + 20 пород кошек)</p>
-        <span class="badge {% if counts.breed_knowledge > 0 %}badge-on{% else %}badge-off{% endif %}">
-          {{ counts.breed_knowledge }} записей
-        </span>
-        {% if counts.breed_registry == 0 %}
-        <span style="font-size:12px;color:#f59e0b;margin-left:8px">⚠ Сначала загрузите реестр пород</span>
-        {% endif %}
-      </div>
-      <form method="post" action="/admin/seeds/run/breed-knowledge">
-        <button class="btn btn-primary" {% if counts.breed_knowledge > 0 %}style="background:#6b7280"{% endif %}>
-          {% if counts.breed_knowledge > 0 %}Загружено ✓{% else %}Загрузить →{% endif %}
-        </button>
-      </form>
+  <div style="background:white;border-radius:8px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);display:flex;justify-content:space-between;align-items:center;">
+    <div>
+      <strong>2. breed_knowledge</strong>
+      <span style="font-size:13px;color:#666;margin-left:8px">MD-файлы пород (44 породы)</span>
+      <span class="badge {{ 'badge-on' if counts.breed_knowledge > 0 else 'badge-off' }}" style="margin-left:8px">
+        {{ counts.breed_knowledge }} записей
+      </span>
     </div>
+    <form method="post" action="/admin/seeds/run/breed-knowledge">
+      <button class="btn {{ 'btn-primary' if counts.breed_knowledge == 0 else '' }}"
+              style="{{ 'background:#6b7280;color:white' if counts.breed_knowledge > 0 else '' }}">
+        {{ 'Загружено ✓' if counts.breed_knowledge > 0 else 'Загрузить →' }}
+      </button>
+    </form>
   </div>
 
-  <div style="background:white;border-radius:8px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,.1)">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-      <div>
-        <h2 style="font-size:16px;margin-bottom:4px">3. Риски пород, стоп-листы, категории корма</h2>
-        <p style="font-size:13px;color:#666;margin-bottom:8px">Таблицы <code>breed_risks</code>, <code>stop_foods</code>, <code>food_categories</code></p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <span class="badge {% if counts.breed_risks > 0 %}badge-on{% else %}badge-off{% endif %}">
-            breed_risks: {{ counts.breed_risks }}
-          </span>
-          <span class="badge {% if counts.stop_foods > 0 %}badge-on{% else %}badge-off{% endif %}">
-            stop_foods: {{ counts.stop_foods }}
-          </span>
-          <span class="badge {% if counts.food_categories > 0 %}badge-on{% else %}badge-off{% endif %}">
-            food_categories: {{ counts.food_categories }}
-          </span>
+  <div style="background:white;border-radius:8px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);display:flex;justify-content:space-between;align-items:center;">
+    <div>
+      <strong>3. breed_risks + stop_foods + food_categories</strong>
+      <div style="margin-top:4px;display:flex;gap:8px;">
+        <span class="badge {{ 'badge-on' if counts.breed_risks > 0 else 'badge-off' }}">risks: {{ counts.breed_risks }}</span>
+        <span class="badge {{ 'badge-on' if counts.stop_foods > 0 else 'badge-off' }}">stops: {{ counts.stop_foods }}</span>
+        <span class="badge {{ 'badge-on' if counts.food_categories > 0 else 'badge-off' }}">cats: {{ counts.food_categories }}</span>
+      </div>
+    </div>
+    <form method="post" action="/admin/seeds/run/nutrition-v2">
+      {% set all_ok = counts.breed_risks > 0 and counts.stop_foods > 0 and counts.food_categories > 0 %}
+      <button class="btn {{ 'btn-primary' if not all_ok else '' }}"
+              style="{{ 'background:#6b7280;color:white' if all_ok else '' }}">
+        {{ 'Загружено ✓' if all_ok else 'Загрузить →' }}
+      </button>
+    </form>
+  </div>
+
+  <div style="background:white;border-radius:8px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);display:flex;justify-content:space-between;align-items:center;">
+    <div>
+      <strong>4. nutrition_knowledge</strong>
+      <span style="font-size:13px;color:#666;margin-left:8px">Базовые нормы КБЖУ по видам</span>
+    </div>
+    <a href="/admin/nutrition" class="btn btn-primary">Перейти →</a>
+  </div>
+
+</div>
+
+<p style="font-size:12px;color:#aaa;margin-bottom:24px">Порядок: 1 → 2 → 3 → 4. Повторная загрузка пропускается автоматически.</p>
+
+<!-- ── Что сейчас в БД ───────────────────────────────────────────── -->
+<h2 style="font-size:18px;margin-bottom:16px">Что сейчас в БД</h2>
+
+<!-- breed_registry -->
+<details style="background:white;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:12px;">
+  <summary style="padding:16px 20px;cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;">
+    <span>breed_registry <span style="font-weight:400;color:#666">— {{ counts.breed_registry }} записей</span></span>
+    <span style="color:#aaa;font-size:12px">▼ раскрыть</span>
+  </summary>
+  <div style="padding:0 20px 20px;">
+    {% if breeds_dogs or breeds_cats %}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px;">
+        <div>
+          <p style="font-size:12px;color:#888;margin-bottom:8px">🐶 Собаки ({{ breeds_dogs|length }})</p>
+          {% for b in breeds_dogs %}
+          <div style="font-size:13px;padding:3px 0;border-bottom:1px solid #f0f0f0;">
+            {{ b.canonical_name_ru }} <span style="color:#aaa">/ {{ b.canonical_name }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        <div>
+          <p style="font-size:12px;color:#888;margin-bottom:8px">🐱 Кошки ({{ breeds_cats|length }})</p>
+          {% for b in breeds_cats %}
+          <div style="font-size:13px;padding:3px 0;border-bottom:1px solid #f0f0f0;">
+            {{ b.canonical_name_ru }} <span style="color:#aaa">/ {{ b.canonical_name }}</span>
+          </div>
+          {% endfor %}
         </div>
       </div>
-      <form method="post" action="/admin/seeds/run/nutrition-v2">
-        {% set all_loaded = counts.breed_risks > 0 and counts.stop_foods > 0 and counts.food_categories > 0 %}
-        <button class="btn btn-primary" {% if all_loaded %}style="background:#6b7280"{% endif %}>
-          {% if all_loaded %}Загружено ✓{% else %}Загрузить →{% endif %}
-        </button>
-      </form>
-    </div>
+    {% else %}
+      <p style="color:#aaa;font-size:13px;padding-top:12px">Таблица пустая</p>
+    {% endif %}
   </div>
+</details>
 
-  <div style="background:white;border-radius:8px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,.1)">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-      <div>
-        <h2 style="font-size:16px;margin-bottom:4px">4. База знаний рациона (nutrition_knowledge)</h2>
-        <p style="font-size:13px;color:#666;margin-bottom:8px">Таблица <code>nutrition_knowledge</code> — базовые нормы КБЖУ по видам</p>
-        <span class="badge {% if counts.breed_registry >= 0 %}badge-off{% endif %}" id="nutrition-badge">
-          — см. страницу Рацион
-        </span>
-      </div>
-      <a href="/admin/nutrition" class="btn btn-primary">Перейти →</a>
-    </div>
+<!-- breed_knowledge -->
+<details style="background:white;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:12px;">
+  <summary style="padding:16px 20px;cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;">
+    <span>breed_knowledge <span style="font-weight:400;color:#666">— {{ counts.breed_knowledge }} записей</span></span>
+    <span style="color:#aaa;font-size:12px">▼ раскрыть</span>
+  </summary>
+  <div style="padding:0 20px 20px;">
+    {% if knowledge_summary %}
+      <table style="margin-top:12px;">
+        <tr><th>Порода</th><th>Вид</th><th>Вес</th></tr>
+        {% for row in knowledge_summary %}
+        <tr>
+          <td>{{ row.canonical_name }}</td>
+          <td><span class="badge {{ 'badge-on' if row.species == 'cat' else 'badge-off' }}">{{ row.species }}</span></td>
+          <td style="color:#666;font-size:12px">{{ row.weight_range or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    {% else %}
+      <p style="color:#aaa;font-size:13px;padding-top:12px">Таблица пустая</p>
+    {% endif %}
   </div>
+</details>
 
-</div>
+<!-- breed_risks -->
+<details style="background:white;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:12px;">
+  <summary style="padding:16px 20px;cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;">
+    <span>breed_risks <span style="font-weight:400;color:#666">— {{ counts.breed_risks }} записей</span></span>
+    <span style="color:#aaa;font-size:12px">▼ раскрыть</span>
+  </summary>
+  <div style="padding:0 20px 20px;">
+    {% if risks_summary %}
+      <table style="margin-top:12px;">
+        <tr><th>Порода</th><th>Risk key</th></tr>
+        {% for row in risks_summary %}
+        <tr>
+          <td>{{ row.breed_name }}</td>
+          <td><code style="background:#f0f0f0;padding:1px 6px;border-radius:3px;font-size:12px">{{ row.risk_key }}</code></td>
+        </tr>
+        {% endfor %}
+      </table>
+    {% else %}
+      <p style="color:#aaa;font-size:13px;padding-top:12px">Таблица пустая</p>
+    {% endif %}
+  </div>
+</details>
 
-<div style="margin-top:24px;padding:16px;background:#fffbeb;border-radius:8px;font-size:13px;color:#92400e;">
-  <strong>Порядок загрузки:</strong> 1 → 2 → 3 → 4. Каждая кнопка защищена от повторной загрузки.
-</div>
+<!-- stop_foods -->
+<details style="background:white;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:12px;">
+  <summary style="padding:16px 20px;cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;">
+    <span>stop_foods <span style="font-weight:400;color:#666">— {{ counts.stop_foods }} записей</span></span>
+    <span style="color:#aaa;font-size:12px">▼ раскрыть</span>
+  </summary>
+  <div style="padding:0 20px 20px;">
+    {% if stop_foods_list %}
+      <table style="margin-top:12px;">
+        <tr><th>Уровень</th><th>Продукт</th><th>Вид</th></tr>
+        {% for row in stop_foods_list %}
+        <tr>
+          <td><span class="badge {{ 'badge-off' if row.level == 1 else ('badge-on' if row.level == 3 else '') }}"
+                    style="{{ 'background:#fef3c7;color:#92400e' if row.level == 2 else '' }}">
+            Уровень {{ row.level }}</span></td>
+          <td>{{ row.product_name }}</td>
+          <td style="color:#888;font-size:12px">{{ row.species }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    {% else %}
+      <p style="color:#aaa;font-size:13px;padding-top:12px">Таблица пустая</p>
+    {% endif %}
+  </div>
+</details>
+
+<!-- food_categories -->
+<details style="background:white;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:12px;">
+  <summary style="padding:16px 20px;cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;">
+    <span>food_categories <span style="font-weight:400;color:#666">— {{ counts.food_categories }} записей</span></span>
+    <span style="color:#aaa;font-size:12px">▼ раскрыть</span>
+  </summary>
+  <div style="padding:0 20px 20px;">
+    {% if food_cats_list %}
+      <table style="margin-top:12px;">
+        <tr><th>Название</th><th>Тип</th><th>ккал/100г</th></tr>
+        {% for row in food_cats_list %}
+        <tr>
+          <td>{{ row.name }}</td>
+          <td><code style="background:#f0f0f0;padding:1px 6px;border-radius:3px;font-size:12px">{{ row.food_type }}</code></td>
+          <td>{{ row.kcal_per_100g }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    {% else %}
+      <p style="color:#aaa;font-size:13px;padding-top:12px">Таблица пустая</p>
+    {% endif %}
+  </div>
+</details>
+
 {% endblock %}

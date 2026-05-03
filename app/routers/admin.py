@@ -112,6 +112,7 @@ async def nutrition_list(request: Request, db: AsyncSession = Depends(get_db)):
 async def seeds_page(request: Request, db: AsyncSession = Depends(get_db), msg: str = ""):
     if not check_auth(request):
         return RedirectResponse("/admin/login")
+
     counts = {
         "breed_registry":  (await db.execute(select(func.count(BreedRegistry.id)))).scalar(),
         "breed_knowledge": (await db.execute(select(func.count(BreedKnowledge.id)))).scalar(),
@@ -119,7 +120,44 @@ async def seeds_page(request: Request, db: AsyncSession = Depends(get_db), msg: 
         "stop_foods":      (await db.execute(select(func.count(StopFood.id)))).scalar(),
         "food_categories": (await db.execute(select(func.count(FoodCategory.id)))).scalar(),
     }
-    return templates.TemplateResponse(request, "admin/seeds.html", {"counts": counts, "msg": msg})
+
+    # Detail data for verification
+    breeds_dogs = (await db.execute(
+        select(BreedRegistry).where(BreedRegistry.species == "dog").order_by(BreedRegistry.canonical_name)
+    )).scalars().all()
+    breeds_cats = (await db.execute(
+        select(BreedRegistry).where(BreedRegistry.species == "cat").order_by(BreedRegistry.canonical_name)
+    )).scalars().all()
+
+    knowledge_summary = (await db.execute(
+        select(BreedKnowledge.canonical_name, BreedKnowledge.species, BreedKnowledge.weight_range)
+        .order_by(BreedKnowledge.species, BreedKnowledge.canonical_name)
+    )).all()
+
+    risks_summary = (await db.execute(
+        select(BreedRisk.breed_name, BreedRisk.risk_key).order_by(BreedRisk.breed_name)
+    )).all()
+
+    stop_foods_list = (await db.execute(
+        select(StopFood.level, StopFood.product_name, StopFood.species)
+        .order_by(StopFood.level, StopFood.product_name)
+    )).all()
+
+    food_cats_list = (await db.execute(
+        select(FoodCategory.name, FoodCategory.food_type, FoodCategory.kcal_per_100g)
+        .order_by(FoodCategory.food_type)
+    )).all()
+
+    return templates.TemplateResponse(request, "admin/seeds.html", {
+        "counts": counts,
+        "msg": msg,
+        "breeds_dogs": breeds_dogs,
+        "breeds_cats": breeds_cats,
+        "knowledge_summary": knowledge_summary,
+        "risks_summary": risks_summary,
+        "stop_foods_list": stop_foods_list,
+        "food_cats_list": food_cats_list,
+    })
 
 
 @router.post("/seeds/run/breeds")
