@@ -12,8 +12,7 @@ class PetService:
     async def create(self, owner_id: int, name: str, species: str,
                      age_months: int, weight_kg: float, goal: str = "maintain",
                      breed: str | None = None, is_neutered: bool = False,
-                     activity_level: str = "moderate", physio_status: str = "normal",
-                     food_category_id: int | None = None) -> Pet:
+                     activity_level: str = "moderate", physio_status: str = "normal") -> Pet:
         if species not in ALLOWED_SPECIES:
             raise ValueError(f"invalid_species: {species}. Allowed: {ALLOWED_SPECIES}")
         if goal not in ALLOWED_GOALS:
@@ -28,7 +27,7 @@ class PetService:
             owner_id=owner_id, name=name, species=species, breed=breed,
             age_months=age_months, weight_kg=weight_kg, goal=goal,
             is_neutered=is_neutered, activity_level=activity_level,
-            physio_status=physio_status, food_category_id=food_category_id,
+            physio_status=physio_status,
         )
 
     async def get_by_owner(self, owner_id: int) -> list[Pet]:
