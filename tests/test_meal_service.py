@@ -263,6 +263,94 @@ class TestGetExcessWarnings:
         )
         assert warnings == []
 
+    # ── Macronutrient balance tests ────────────────────────────────────
+
+    def _macro_totals(self, protein_g=0, fat_g=0, carb_g=0):
+        kcal = protein_g * 4 + fat_g * 9 + carb_g * 4
+        return {
+            "kcal": kcal,
+            "protein_g": protein_g, "fat_g": fat_g, "carb_g": carb_g,
+            "calcium_mg": 0, "phosphorus_mg": 0,
+            "magnesium_mg": 0, "omega3_mg": 0, "taurine_mg": 0,
+        }
+
+    def test_fat_warning_dog(self):
+        svc = make_service()
+        # 50g fat → 450 kcal; 20g protein → 80 kcal; total 530 kcal; fat = 85% ME
+        totals = self._macro_totals(protein_g=20, fat_g=50, carb_g=0)
+        warnings = svc.get_excess_warnings(
+            totals=totals, target_kcal=totals["kcal"],
+            species="dog", age_months=24, weight_kg=20,
+        )
+        assert any("Жир" in w for w in warnings)
+
+    def test_fat_critical_dog(self):
+        svc = make_service()
+        # 80g fat → 720 kcal; 10g protein → 40 kcal; fat = 94.7% ME → above 55% stop
+        totals = self._macro_totals(protein_g=10, fat_g=80, carb_g=0)
+        warnings = svc.get_excess_warnings(
+            totals=totals, target_kcal=totals["kcal"],
+            species="dog", age_months=24, weight_kg=20,
+        )
+        assert any("🔴" in w and "Жир" in w for w in warnings)
+
+    def test_fat_ok_dog(self):
+        svc = make_service()
+        # 30g fat → 270 kcal; 40g protein → 160 kcal; 30g carb → 120 kcal; total 550; fat=49%
+        # Wait, 49% is above 40% warn. Let me use 20g fat
+        # 20g fat → 180 kcal; 40g protein → 160 kcal; 30g carb → 120 kcal; total 460; fat=39%
+        totals = self._macro_totals(protein_g=40, fat_g=20, carb_g=30)
+        warnings = svc.get_excess_warnings(
+            totals=totals, target_kcal=totals["kcal"],
+            species="dog", age_months=24, weight_kg=20,
+        )
+        assert not any("Жир" in w for w in warnings)
+
+    def test_carb_warning_cat(self):
+        svc = make_service()
+        # 5g fat → 45 kcal; 10g protein → 40 kcal; 60g carb → 240 kcal; total 325; carb=73.8%
+        totals = self._macro_totals(protein_g=10, fat_g=5, carb_g=60)
+        warnings = svc.get_excess_warnings(
+            totals=totals, target_kcal=totals["kcal"],
+            species="cat", age_months=24, weight_kg=4,
+        )
+        assert any("Углеводы" in w for w in warnings)
+        assert any("кошек" in w for w in warnings)
+
+    def test_carb_warning_dog_threshold_higher(self):
+        svc = make_service()
+        # Same 73% carb — should NOT warn for dog (threshold is 65%)
+        # Let's use something clearly above 65% for dog
+        # 5g protein → 20 kcal; 5g fat → 45 kcal; 70g carb → 280 kcal; total 345; carb=81%
+        totals = self._macro_totals(protein_g=5, fat_g=5, carb_g=70)
+        warnings = svc.get_excess_warnings(
+            totals=totals, target_kcal=totals["kcal"],
+            species="dog", age_months=24, weight_kg=20,
+        )
+        assert any("Углеводы" in w for w in warnings)
+        assert not any("кошек" in w for w in warnings)
+
+    def test_protein_warning_dog(self):
+        svc = make_service()
+        # 100g protein → 400 kcal; 5g fat → 45 kcal; total 445 kcal; protein=89.9%
+        totals = self._macro_totals(protein_g=100, fat_g=5, carb_g=0)
+        warnings = svc.get_excess_warnings(
+            totals=totals, target_kcal=totals["kcal"],
+            species="dog", age_months=24, weight_kg=20,
+        )
+        assert any("Белок" in w for w in warnings)
+
+    def test_balanced_meal_no_macro_warnings(self):
+        svc = make_service()
+        # 30g protein → 120 kcal (39%); 12g fat → 108 kcal (35%); 20g carb → 80 kcal (26%); total 308
+        totals = self._macro_totals(protein_g=30, fat_g=12, carb_g=20)
+        warnings = svc.get_excess_warnings(
+            totals=totals, target_kcal=totals["kcal"],
+            species="dog", age_months=24, weight_kg=20,
+        )
+        macro_warns = [w for w in warnings if any(k in w for k in ("Белок", "Жир", "Углеводы"))]
+        assert macro_warns == []
+
 
 class TestIsDone:
     def test_done_when_90pct(self):

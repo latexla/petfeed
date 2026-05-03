@@ -54,6 +54,21 @@ MICRO_MAX_PER_1000KCAL: dict[str, dict[str, float]] = {
 # Maximum daily calorie excess vs calculated MER (fraction above 1.0)
 # Beyond this → obesity / pancreatitis risk
 MER_MAX_OVERAGE: float = 0.20  # +20 %
+
+# Macronutrient share of meal kcal thresholds (% of total meal energy)
+# Source: Lem et al. JAVMA 2008 (fat/pancreatitis); Godfrey et al. J Anim Sci 2025 (carbs/cats);
+#         NRC 2006 (no MTL for macros in healthy animals)
+# Protein note: direct evidence of kidney damage in HEALTHY dogs from high protein is weak but
+# the hyperfiltration mechanism is real; pig studies show fibrosis at 35% ME (PMID:20668252).
+# Thresholds here are for extreme imbalance flags, not toxicity cutoffs.
+MACRO_PCT_WARN: dict[str, dict[str, float]] = {
+    "dog": {"fat": 40.0, "protein": 55.0, "carb": 65.0},
+    "cat": {"fat": 50.0, "protein": 70.0, "carb": 45.0},
+}
+MACRO_PCT_STOP: dict[str, dict[str, float]] = {
+    "dog": {"fat": 55.0},
+    "cat": {"fat": 65.0},
+}
 EXAMPLES_BY_TYPE: dict[str, str] = {
     "natural":  "курица, говядина, гречка, морковь, яйцо",
     "prepared": "Royal Canin, Purina Pro Plan, Hills",
@@ -318,6 +333,52 @@ class MealService:
                 f"⚠️ Калорийность приёма пищи превышает норму на {pct}% "
                 f"({meal_kcal:.0f} vs {target_kcal:.0f} ккал) — риск ожирения"
             )
+
+        # ── Macronutrient balance (% of meal kcal) ─────────────────────────
+        fat_kcal  = totals.get("fat_g", 0) * 9
+        prot_kcal = totals.get("protein_g", 0) * 4
+        carb_kcal = totals.get("carb_g", 0) * 4
+
+        warn_pct = MACRO_PCT_WARN.get(species, {})
+        stop_pct = MACRO_PCT_STOP.get(species, {})
+
+        fat_pct  = fat_kcal  / meal_kcal * 100
+        prot_pct = prot_kcal / meal_kcal * 100
+        carb_pct = carb_kcal / meal_kcal * 100
+
+        fat_stop = stop_pct.get("fat", 0)
+        fat_warn = warn_pct.get("fat", 0)
+        if fat_stop and fat_pct > fat_stop:
+            warnings.append(
+                f"🔴 Жир: {fat_pct:.0f}% калорийности — критически высокий уровень "
+                f"(макс. {fat_stop:.0f}%, Lem et al. 2008) — острый риск панкреатита"
+            )
+        elif fat_warn and fat_pct > fat_warn:
+            warnings.append(
+                f"⚠️ Жир: {fat_pct:.0f}% калорийности (рек. макс. {fat_warn:.0f}%) — "
+                "повышенный риск гипертриглицеридемии и панкреатита"
+            )
+
+        prot_warn = warn_pct.get("protein", 0)
+        if prot_warn and prot_pct > prot_warn:
+            warnings.append(
+                f"⚠️ Белок: {prot_pct:.0f}% калорийности (рек. макс. {prot_warn:.0f}%) — "
+                "крайний дисбаланс рациона; обеспечь достаточное потребление воды; "
+                "при заболеваниях почек — обязательно снизить и проконсультироваться с ветеринаром"
+            )
+
+        carb_warn = warn_pct.get("carb", 0)
+        if carb_warn and carb_pct > carb_warn:
+            if species == "cat":
+                warnings.append(
+                    f"⚠️ Углеводы: {carb_pct:.0f}% калорийности (рек. макс. {carb_warn:.0f}% для кошек) — "
+                    "кошки — облигатные хищники; постпрандиальная гипергликемия при ≥43% ME (Verbrugghe 2017)"
+                )
+            else:
+                warnings.append(
+                    f"⚠️ Углеводы: {carb_pct:.0f}% калорийности (рек. макс. {carb_warn:.0f}%) — "
+                    "несбалансированный рацион, риск ожирения"
+                )
 
         return warnings
 
