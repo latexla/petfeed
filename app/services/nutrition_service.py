@@ -163,6 +163,7 @@ class NutritionService:
         ration = await self.repo.upsert_ration(
             pet_id=pet.id,
             daily_calories=mer,
+            daily_food_grams=daily_grams_est,
             meals_per_day=meals,
             notes="; ".join(calc.recommendations()),
         )
