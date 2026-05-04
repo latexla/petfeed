@@ -30,10 +30,16 @@ RANGE_GUARD: dict[str, tuple[float, float]] = {
     "dairy":     (30, 400),
     "oil":       (700, 900),
 }
-# Minimum nutrients per 1000 kcal (NRC 2006)
+# Target nutrients per 1000 kcal
+# Calcium/phosphorus: NRC 2006 minimum RA.
+# Taurine: NRC 2006 RA for cats (500 mg/1000 kcal).
+# Omega-3: therapeutic EPA+DHA target, not NRC ALA minimum (110 mg/1000 kcal).
+#   NRC ALA minimum is easily exceeded 10× by any fish food and is meaningless
+#   as a tracking target. Using anti-inflammatory EPA+DHA level instead:
+#   dogs 250 mg/1000 kcal, cats 400 mg/1000 kcal (≈40–100 mg/kg BW/day).
 MICRO_PER_1000KCAL: dict[str, dict[str, float]] = {
-    "dog":  {"calcium_mg": 1250, "phosphorus_mg": 1000, "omega3_mg": 110},
-    "cat":  {"taurine_mg": 500,  "omega3_mg": 110, "calcium_mg": 720, "phosphorus_mg": 640},
+    "dog":  {"calcium_mg": 1250, "phosphorus_mg": 1000, "omega3_mg": 250},
+    "cat":  {"taurine_mg": 500,  "omega3_mg": 400, "calcium_mg": 720, "phosphorus_mg": 640},
 }
 
 # Maximum tolerable levels per 1000 kcal (NRC 2006 / AAFCO 2024)
@@ -396,6 +402,9 @@ class MealService:
 
         prompt = (
             f"Дай точные данные КБЖУ и микронутриентов на 100г для продукта: «{product_name}».\n"
+            "Все значения — строго на 100г продукта:\n"
+            "  kcal — ккал, protein_g/fat_g/carb_g — граммы,\n"
+            "  calcium_mg/phosphorus_mg/omega3_mg/taurine_mg — миллиграммы (НЕ мг/кг, а мг на 100г).\n"
             "Ответь ТОЛЬКО в JSON без пояснений:\n"
             '{"kcal":0,"protein_g":0,"fat_g":0,"carb_g":0,'
             '"calcium_mg":0,"phosphorus_mg":0,"omega3_mg":0,"taurine_mg":0,'

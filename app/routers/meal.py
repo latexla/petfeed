@@ -51,14 +51,17 @@ async def add_product(body: AddProductRequest, request: Request,
         target_kcal = round(float(ration.daily_calories) / ration.meals_per_day, 1)
         daily_grams_est = float(ration.daily_calories) / 350 * 100
         pct_prot = 0.225 if pet.age_months < 12 else 0.18
-        pct_fat  = 0.085 if pet.age_months < 12 else 0.055
+        # Fat target: ~25% of meal kcal for young, ~20% for adults (÷9 kcal/g).
+        # AAFCO minimum (5.5% DM) is too low — all real food far exceeds it,
+        # making progress look like a permanent 300%+ overshoot.
+        fat_pct_kcal = 0.25 if pet.age_months < 12 else 0.20
         session = {
             "food_type": body.food_type,
             "items": [],
             "target": {
                 "kcal": target_kcal,
                 "protein_g": round(daily_grams_est * pct_prot / ration.meals_per_day, 1),
-                "fat_g": round(daily_grams_est * pct_fat / ration.meals_per_day, 1),
+                "fat_g": round(target_kcal * fat_pct_kcal / 9, 1),
                 **micro_targets,
             },
         }
