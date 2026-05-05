@@ -113,3 +113,70 @@ class TestMERCalculator:
                              physio_status="normal", goal="maintain",
                              breed_risks=[])
         assert calc.has_hypoglycemia_risk() is False
+
+    # ── Cat-specific MER coefficients (NRC 2006) ────────────────────
+
+    def _cat(self, **kw) -> MERCalculator:
+        defaults = dict(weight_kg=4.0, age_months=24, is_neutered=False,
+                        activity_level="moderate", physio_status="normal",
+                        goal="maintain", breed_risks=[], species="cat")
+        defaults.update(kw)
+        return MERCalculator(**defaults)
+
+    def test_cat_intact_adult_lower_than_dog(self):
+        # Cat intact adult: 1.4 × RER; dog intact: 1.8 × RER
+        cat = self._cat(is_neutered=False)
+        dog = MERCalculator(weight_kg=4.0, age_months=24, is_neutered=False,
+                            activity_level="moderate", physio_status="normal",
+                            goal="maintain", breed_risks=[], species="dog")
+        assert cat.mer() < dog.mer()
+
+    def test_cat_intact_coefficient(self):
+        # 4 kg cat, intact, moderate → RER * 1.4 * 1.0
+        calc = self._cat(is_neutered=False)
+        rer = 70 * (4.0 ** 0.75)
+        assert round(calc.mer(), 1) == round(rer * 1.4, 1)
+
+    def test_cat_neutered_coefficient(self):
+        # 4 kg cat, neutered, moderate → RER * 1.2 * 1.0
+        calc = self._cat(is_neutered=True)
+        rer = 70 * (4.0 ** 0.75)
+        assert round(calc.mer(), 1) == round(rer * 1.2, 1)
+
+    def test_cat_weight_loss_coefficient(self):
+        # Cat on weight loss: 0.8 × RER (not 1.4 like dogs)
+        calc = self._cat(is_neutered=True, goal="lose")
+        rer = 70 * (4.0 ** 0.75)
+        assert round(calc.mer(), 1) == round(rer * 0.8, 1)
+
+    def test_cat_sphynx_high_caloric_need(self):
+        # Sphynx (high_caloric_need) intact: 1.8 × RER — same for cat/dog
+        calc = self._cat(is_neutered=False, breed_risks=["high_caloric_need"])
+        rer = 70 * (4.0 ** 0.75)
+        assert round(calc.mer(), 1) == round(rer * 1.8, 1)
+
+    def test_cat_protein_min_higher_than_dog(self):
+        # Cats need more protein: 26% DM vs 18% DM for dogs
+        cat = self._cat()
+        dog = MERCalculator(weight_kg=4.0, age_months=24, is_neutered=False,
+                            activity_level="moderate", physio_status="normal",
+                            goal="maintain", breed_risks=[], species="dog")
+        assert cat.protein_min_g(100.0) > dog.protein_min_g(100.0)
+
+    def test_slow_maturation_growth_until_18mo(self):
+        # Maine Coon at 14 months should still use growth coefficient (2.0)
+        calc = MERCalculator(weight_kg=5.0, age_months=14, is_neutered=False,
+                             activity_level="moderate", physio_status="normal",
+                             goal="growth", breed_risks=["slow_maturation"],
+                             species="cat")
+        rer = 70 * (5.0 ** 0.75)
+        assert round(calc.mer(), 1) == round(rer * 2.0, 1)
+
+    def test_slow_maturation_adult_after_18mo(self):
+        # Maine Coon at 20 months should use adult coefficient
+        calc = MERCalculator(weight_kg=6.0, age_months=20, is_neutered=True,
+                             activity_level="moderate", physio_status="normal",
+                             goal="maintain", breed_risks=["slow_maturation"],
+                             species="cat")
+        rer = 70 * (6.0 ** 0.75)
+        assert round(calc.mer(), 1) == round(rer * 1.2, 1)

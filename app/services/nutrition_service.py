@@ -15,7 +15,7 @@ _DEFAULT_KCAL = 350.0  # used only for protein/fat minimum estimation
 class MERCalculator:
     def __init__(self, weight_kg: float, age_months: int, is_neutered: bool,
                  activity_level: str, physio_status: str, goal: str,
-                 breed_risks: list[str]):
+                 breed_risks: list[str], species: str = "dog"):
         self.weight_kg = weight_kg
         self.age_months = age_months
         self.is_neutered = is_neutered
@@ -23,27 +23,39 @@ class MERCalculator:
         self.physio_status = physio_status
         self.goal = goal
         self.breed_risks = breed_risks
+        self.species = species
 
     def rer(self) -> float:
         return 70 * (self.weight_kg ** 0.75)
 
     def _base_coefficient(self) -> float:
+        # Growth phases — same logic for all species
         if self.age_months < 4:
             return 3.0
-        if self.age_months < 12:
+        # slow_maturation breeds (Maine Coon, Ragdoll, etc.) stay on growth
+        # coefficients until 18 months
+        growth_cutoff = 18 if "slow_maturation" in self.breed_risks else 12
+        if self.age_months < growth_cutoff:
             return 2.0
+
         if self.physio_status in ("pregnant", "lactating"):
             return 2.5
         if self.physio_status == "recovery":
             return 1.3
-        if self.goal == "lose" or "obesity" in self.breed_risks:
-            return 1.4
-        # Sphynx: no fur → higher heat loss → elevated caloric need
+
+        # Sphynx: no fur → higher thermoregulation cost
         if "high_caloric_need" in self.breed_risks:
             return 1.8 if not self.is_neutered else 1.6
-        if self.is_neutered:
-            return 1.6
-        return 1.8
+
+        # Weight loss goal or obesity-prone breed
+        if self.goal == "lose" or "obesity" in self.breed_risks:
+            return 0.8 if self.species == "cat" else 1.4
+
+        # Species-specific adult maintenance coefficients (NRC 2006)
+        if self.species == "cat":
+            return 1.2 if self.is_neutered else 1.4
+        # dog (default)
+        return 1.6 if self.is_neutered else 1.8
 
     def mer(self) -> float:
         multiplier = ACTIVITY_MULTIPLIER.get(self.activity_level, 1.0)
@@ -61,15 +73,20 @@ class MERCalculator:
     def daily_food_grams(self, kcal_per_100g: float) -> float:
         return (self.mer() / kcal_per_100g) * 100
 
-    def _is_puppy(self) -> bool:
-        return self.age_months < 12 or self.physio_status in ("pregnant", "lactating")
+    def _is_young(self) -> bool:
+        cutoff = 18 if "slow_maturation" in self.breed_risks else 12
+        return self.age_months < cutoff or self.physio_status in ("pregnant", "lactating")
 
     def protein_min_g(self, daily_food_grams: float) -> float:
-        pct = 0.225 if self._is_puppy() else 0.18
+        # Cats need more protein than dogs (obligate carnivore)
+        if self.species == "cat":
+            pct = 0.30 if self._is_young() else 0.26
+        else:
+            pct = 0.225 if self._is_young() else 0.18
         return daily_food_grams * pct
 
     def fat_min_g(self, daily_food_grams: float) -> float:
-        pct = 0.085 if self._is_puppy() else 0.055
+        pct = 0.085 if self._is_young() else 0.055
         return daily_food_grams * pct
 
     def has_hypoglycemia_risk(self) -> bool:
@@ -78,7 +95,8 @@ class MERCalculator:
     def recommendations(self) -> list[str]:
         notes = []
         notes.append("При смене корма — переход 7–10 дней")
-        notes.append("Рекомендуется миска-лабиринт")
+        if self.species == "dog":
+            notes.append("Рекомендуется миска-лабиринт")
         if "atopy" in self.breed_risks:
             notes.append("Омега-3 добавки полезны для кожи и шерсти (предрасположенность к атопии)")
         if "patellar_luxation" in self.breed_risks:
@@ -148,6 +166,7 @@ class NutritionService:
             physio_status=pet.physio_status,
             goal=pet.goal,
             breed_risks=breed_risks,
+            species=pet.species,
         )
 
         mer = round(calc.mer(), 1)
