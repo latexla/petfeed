@@ -52,7 +52,20 @@
 
   <div style="background:white;border-radius:8px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);display:flex;justify-content:space-between;align-items:center;">
     <div>
-      <strong>4. nutrition_knowledge</strong>
+      <strong>4. food_items</strong>
+      <span style="font-size:13px;color:#666;margin-left:8px">База продуктов для meal builder (ожидается 44)</span>
+      <span class="badge {{ 'badge-on' if counts.food_items >= 44 else 'badge-off' }}" style="margin-left:8px">
+        {{ counts.food_items }} записей
+      </span>
+    </div>
+    <form method="post" action="/admin/seeds/run/food-items">
+      <button class="btn btn-primary">Синхронизировать</button>
+    </form>
+  </div>
+
+  <div style="background:white;border-radius:8px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);display:flex;justify-content:space-between;align-items:center;">
+    <div>
+      <strong>5. nutrition_knowledge</strong>
       <span style="font-size:13px;color:#666;margin-left:8px">Базовые нормы КБЖУ по видам</span>
     </div>
     <a href="/admin/nutrition" class="btn btn-primary">Перейти →</a>
@@ -190,6 +203,34 @@
       </table>
     {% else %}
       <p style="color:#aaa;font-size:13px;padding-top:12px">Таблица пустая</p>
+    {% endif %}
+  </div>
+</details>
+
+<!-- food_items -->
+<details style="background:white;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:12px;">
+  <summary style="padding:16px 20px;cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;">
+    <span>food_items <span style="font-weight:400;color:#666">— {{ counts.food_items }} записей</span></span>
+    <span style="color:#aaa;font-size:12px">▼ раскрыть</span>
+  </summary>
+  <div style="padding:0 20px 20px;">
+    {% if food_items_list %}
+      <table style="margin-top:12px;">
+        <tr><th>Продукт</th><th>Категория</th><th>ккал</th><th>Б</th><th>Ж</th><th>Омега-3</th><th>Таурин</th></tr>
+        {% for row in food_items_list %}
+        <tr>
+          <td>{{ row.name }}</td>
+          <td><code style="background:#f0f0f0;padding:1px 6px;border-radius:3px;font-size:11px">{{ row.category }}</code></td>
+          <td>{{ row.kcal_per_100g }}</td>
+          <td>{{ row.protein_g }}г</td>
+          <td>{{ row.fat_g }}г</td>
+          <td style="color:#666;font-size:12px">{{ row.omega3_mg or '—' }}</td>
+          <td style="color:#666;font-size:12px">{{ row.taurine_mg or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    {% else %}
+      <p style="color:#aaa;font-size:13px;padding-top:12px">Таблица пустая — нажмите «Синхронизировать»</p>
     {% endif %}
   </div>
 </details>

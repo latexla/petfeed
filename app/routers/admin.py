@@ -14,6 +14,7 @@ from app.models.breed_knowledge import BreedKnowledge
 from app.models.breed_risk import BreedRisk
 from app.models.stop_food import StopFood
 from app.models.food_category import FoodCategory
+from app.models.food_item import FoodItem
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 templates = Jinja2Templates(directory="app/templates")
@@ -119,6 +120,7 @@ async def seeds_page(request: Request, db: AsyncSession = Depends(get_db), msg: 
         "breed_risks":     (await db.execute(select(func.count(BreedRisk.id)))).scalar(),
         "stop_foods":      (await db.execute(select(func.count(StopFood.id)))).scalar(),
         "food_categories": (await db.execute(select(func.count(FoodCategory.id)))).scalar(),
+        "food_items":      (await db.execute(select(func.count(FoodItem.id)))).scalar(),
     }
 
     # Detail data for verification
@@ -148,6 +150,12 @@ async def seeds_page(request: Request, db: AsyncSession = Depends(get_db), msg: 
         .order_by(FoodCategory.food_type)
     )).all()
 
+    food_items_list = (await db.execute(
+        select(FoodItem.name, FoodItem.category, FoodItem.kcal_per_100g,
+               FoodItem.protein_g, FoodItem.fat_g, FoodItem.omega3_mg, FoodItem.taurine_mg)
+        .order_by(FoodItem.category, FoodItem.name)
+    )).all()
+
     return templates.TemplateResponse(request, "admin/seeds.html", {
         "counts": counts,
         "msg": msg,
@@ -157,6 +165,7 @@ async def seeds_page(request: Request, db: AsyncSession = Depends(get_db), msg: 
         "risks_summary": risks_summary,
         "stop_foods_list": stop_foods_list,
         "food_cats_list": food_cats_list,
+        "food_items_list": food_items_list,
     })
 
 
@@ -234,6 +243,30 @@ async def seed_nutrition_v2(request: Request, db: AsyncSession = Depends(get_db)
         await db.commit()
     return RedirectResponse(
         f"/admin/seeds?msg=Nutrition+v2:+добавлено+{added}+новых+записей",
+        status_code=302,
+    )
+
+
+@router.post("/seeds/run/food-items")
+async def seed_food_items(request: Request, db: AsyncSession = Depends(get_db)):
+    if not check_auth(request):
+        return RedirectResponse("/admin/login")
+    from app.seeds.food_items_seed import ITEMS
+    existing_names = set(
+        r for (r,) in (await db.execute(select(FoodItem.name))).all()
+    )
+    to_add = [row for row in ITEMS if row[0] not in existing_names]
+    for row in to_add:
+        db.add(FoodItem(
+            name=row[0], name_aliases=row[1], category=row[2], species=row[3],
+            kcal_per_100g=row[4], protein_g=row[5], fat_g=row[6], carb_g=row[7],
+            calcium_mg=row[8], phosphorus_mg=row[9], omega3_mg=row[10], taurine_mg=row[11],
+            source="USDA",
+        ))
+    if to_add:
+        await db.commit()
+    return RedirectResponse(
+        f"/admin/seeds?msg=Продукты:+добавлено+{len(to_add)},+пропущено+{len(ITEMS)-len(to_add)}",
         status_code=302,
     )
 
