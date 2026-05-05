@@ -1,6 +1,21 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
+def onboarding_keyboard(step: int, total: int = 3) -> InlineKeyboardMarkup:
+    if step < total:
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text=f"Далее →  {step}/{total}", callback_data=f"onboard:{step + 1}"),
+            ],
+            [
+                InlineKeyboardButton(text="Пропустить", callback_data="onboard:skip"),
+            ],
+        ])
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🐾 Создать профиль питомца", callback_data="onboard:start")],
+    ])
+
+
 def species_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [

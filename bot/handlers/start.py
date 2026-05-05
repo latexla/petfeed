@@ -4,8 +4,34 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from bot.states import PetCreation
-from bot.keyboards import species_keyboard, main_menu_keyboard, pets_keyboard, pet_profile_keyboard
+from bot.keyboards import (
+    species_keyboard, main_menu_keyboard, pets_keyboard,
+    pet_profile_keyboard, onboarding_keyboard,
+)
 from app.config import settings
+
+ONBOARDING_SCREENS = [
+    None,  # index 0 unused — screens are 1-indexed
+    (
+        "🐾 <b>Привет! Я PetFeed</b>\n\n"
+        "Умный помощник для правильного питания твоей кошки или собаки.\n\n"
+        "Покажу за 30 секунд, что умею 👇"
+    ),
+    (
+        "🍽 <b>Персональный рацион</b>\n\n"
+        "Рассчитываю суточную норму калорий, белков и жиров по весу, "
+        "возрасту, породе и цели.\n\n"
+        "Нормы основаны на стандартах <b>NRC 2006</b> и <b>AAFCO</b> — "
+        "тех же, что используют ветеринарные диетологи."
+    ),
+    (
+        "🐶 <b>Знаю особенности каждой породы</b>\n\n"
+        "Учитываю породные риски: ожирение у британских кошек, "
+        "кардиомиопатию у мейн-кунов, дисплазию у лабрадоров.\n\n"
+        "44 породы в базе — с научными источниками.\n\n"
+        "Готов? Создадим профиль питомца 🙂"
+    ),
+]
 
 router = Router()
 
@@ -38,15 +64,12 @@ async def cmd_start(message: Message, state: FSMContext):
     pets = await get_user_pets(telegram_id)
 
     if not pets:
+        # New user — show onboarding screen 1
         await message.answer(
-            "Добро пожаловать в <b>PetFeed</b>!\n\n"
-            "Я помогу правильно кормить твоего питомца — "
-            "кошку, собаку, хомяка, черепаху или попугая.\n\n"
-            "Давай создадим профиль питомца — это займёт 2 минуты.",
-            parse_mode="HTML"
+            ONBOARDING_SCREENS[1],
+            parse_mode="HTML",
+            reply_markup=onboarding_keyboard(step=1),
         )
-        await state.set_state(PetCreation.waiting_species)
-        await message.answer("Шаг 1 из 5\nКто твой питомец?", reply_markup=species_keyboard())
         return
 
     pet = pets[0]
@@ -54,15 +77,35 @@ async def cmd_start(message: Message, state: FSMContext):
 
     if len(pets) == 1:
         await message.answer(
-            f"С возвращением!\n\nВыбери действие:",
+            "С возвращением!\n\nВыбери действие:",
             parse_mode="HTML",
-            reply_markup=main_menu_keyboard(pet["name"])
+            reply_markup=main_menu_keyboard(pet["name"]),
         )
     else:
         await message.answer(
             "С возвращением! Выбери питомца:",
-            reply_markup=pets_keyboard(pets, action="main")
+            reply_markup=pets_keyboard(pets, action="main"),
         )
+
+
+@router.callback_query(F.data.startswith("onboard:"))
+async def onboarding_step(callback: CallbackQuery, state: FSMContext):
+    action = callback.data.split(":")[1]
+
+    if action in ("skip", "start"):
+        await state.set_state(PetCreation.waiting_species)
+        await callback.message.edit_text(
+            "Шаг 1 из 9\nКто твой питомец?",
+            reply_markup=species_keyboard(),
+        )
+        return
+
+    step = int(action)
+    await callback.message.edit_text(
+        ONBOARDING_SCREENS[step],
+        parse_mode="HTML",
+        reply_markup=onboarding_keyboard(step=step),
+    )
 
 
 @router.callback_query(F.data.startswith("select_pet:main:"))
