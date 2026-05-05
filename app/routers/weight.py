@@ -7,6 +7,7 @@ from app.repositories.pet_repo import PetRepository
 from app.services.user_service import UserService
 from app.services.pet_service import PetService
 from app.services.weight_service import WeightService
+from datetime import datetime
 
 router = APIRouter(prefix="/weight", tags=["weight"])
 
@@ -21,6 +22,22 @@ class WeightUpdateResponse(BaseModel):
     old_weight: float
     new_weight: float
     ration_recalculated: bool
+
+
+@router.get("/history/{pet_id}")
+async def get_weight_history(pet_id: int, request: Request,
+                             db: AsyncSession = Depends(get_db)):
+    user = await UserService(UserRepository(db)).get_or_create(
+        telegram_id=request.state.telegram_id
+    )
+    pet = await PetService(PetRepository(db)).get_by_id(pet_id=pet_id, owner_id=user.id)
+    if pet is None:
+        raise HTTPException(status_code=404, detail={"error": "not_found"})
+    history = await WeightService(db).get_history(pet_id, limit=10)
+    return [
+        {"weight_kg": float(h.weight_kg), "recorded_at": str(h.recorded_at)}
+        for h in history
+    ]
 
 
 @router.post("", response_model=WeightUpdateResponse)

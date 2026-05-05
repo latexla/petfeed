@@ -1,6 +1,13 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
+def weight_after_keyboard(pet_id: int, pet_name: str = "") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📊 История веса", callback_data=f"weight_history:{pet_id}")],
+        [InlineKeyboardButton(text="← Главное меню",  callback_data="meal_to_menu")],
+    ])
+
+
 def onboarding_keyboard(step: int, total: int = 3) -> InlineKeyboardMarkup:
     if step < total:
         return InlineKeyboardMarkup(inline_keyboard=[
