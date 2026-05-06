@@ -1,4 +1,6 @@
 import pytest
+from httpx import AsyncClient, ASGITransport
+from app.main import app
 from app.models.user_feedback import UserFeedback
 
 
@@ -36,3 +38,30 @@ class TestFeedbackCreate:
         fb = FeedbackCreate(rating=3, top_feature="AI-ассистент")
         assert fb.source == "manual"
         assert fb.comment is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.skip(reason="requires real DB")
+class TestFeedbackEndpoint:
+    async def test_submit_success(self):
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.post(
+                "/v1/feedback",
+                json={"rating": 5, "top_feature": "Рацион питания"},
+                headers={"X-Telegram-Id": "111222333"},
+            )
+        assert resp.status_code == 201
+        assert resp.json()["status"] == "ok"
+
+    async def test_submit_invalid_rating(self):
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.post(
+                "/v1/feedback",
+                json={"rating": 10, "top_feature": "Рацион питания"},
+                headers={"X-Telegram-Id": "111222444"},
+            )
+        assert resp.status_code == 422

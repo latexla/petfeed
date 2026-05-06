@@ -17,7 +17,11 @@ class FeedbackCreate(BaseModel):
     source: str = "manual"
 
 
-@router.post("", status_code=201)
+class FeedbackResponse(BaseModel):
+    status: str
+
+
+@router.post("", response_model=FeedbackResponse, status_code=201)
 async def submit_feedback(data: FeedbackCreate, request: Request,
                           db: AsyncSession = Depends(get_db)):
     user = await UserService(UserRepository(db)).get_or_create(
@@ -36,4 +40,4 @@ async def submit_feedback(data: FeedbackCreate, request: Request,
         source=data.source,
     ))
     await db.commit()
-    return {"status": "ok"}
+    return FeedbackResponse(status="ok")
