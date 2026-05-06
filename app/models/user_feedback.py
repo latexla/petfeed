@@ -6,7 +6,10 @@ from app.database import Base
 
 class UserFeedback(Base):
     __tablename__ = "user_feedback"
-    __table_args__ = (UniqueConstraint("user_id", name="uq_user_feedback_user"),)
+    __table_args__ = (
+        CheckConstraint("rating BETWEEN 1 AND 5", name="ck_user_feedback_rating"),
+        UniqueConstraint("user_id", name="uq_user_feedback_user"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
