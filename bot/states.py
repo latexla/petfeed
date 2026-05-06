@@ -19,3 +19,9 @@ class PetCreation(StatesGroup):
 class MealBuilder(StatesGroup):
     waiting_type    = State()
     waiting_product = State()
+
+
+class FeedbackFlow(StatesGroup):
+    waiting_rating  = State()
+    waiting_feature = State()
+    waiting_comment = State()

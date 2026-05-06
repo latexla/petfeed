@@ -90,6 +90,7 @@ def main_menu_keyboard(pet_name: str = "") -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="Заказать корм",         callback_data="menu:order")],
         [InlineKeyboardButton(text="Задать вопрос AI",      callback_data="menu:ai")],
         [InlineKeyboardButton(text="Профиль питомца",       callback_data="menu:pet")],
+        [InlineKeyboardButton(text="💬 Обратная связь",     callback_data="menu:feedback")],
         [InlineKeyboardButton(text="+ Добавить питомца",    callback_data="add_pet")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -199,4 +200,34 @@ def meal_l2_keyboard(product_name: str) -> InlineKeyboardMarkup:
                               callback_data=f"meal_l2_yes:{product_name}")],
         [InlineKeyboardButton(text="Нет, заменить",
                               callback_data="meal_l2_no")],
+    ])
+
+
+def feedback_rating_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="⭐ 1",     callback_data="fb_rating:1"),
+            InlineKeyboardButton(text="⭐⭐ 2",   callback_data="fb_rating:2"),
+            InlineKeyboardButton(text="⭐⭐⭐ 3", callback_data="fb_rating:3"),
+        ],
+        [
+            InlineKeyboardButton(text="⭐⭐⭐⭐ 4",   callback_data="fb_rating:4"),
+            InlineKeyboardButton(text="⭐⭐⭐⭐⭐ 5", callback_data="fb_rating:5"),
+        ],
+    ])
+
+
+def feedback_feature_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🍽 Рацион питания",       callback_data="fb_feature:Рацион питания")],
+        [InlineKeyboardButton(text="⏰ Напоминания",           callback_data="fb_feature:Напоминания")],
+        [InlineKeyboardButton(text="⚖️ Трекер веса",           callback_data="fb_feature:Трекер веса")],
+        [InlineKeyboardButton(text="🤖 AI-ассистент",          callback_data="fb_feature:AI-ассистент")],
+        [InlineKeyboardButton(text="🚫 Стоп-лист продуктов",  callback_data="fb_feature:Стоп-лист продуктов")],
+    ])
+
+
+def feedback_comment_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Пропустить →", callback_data="fb_skip_comment")],
     ])
