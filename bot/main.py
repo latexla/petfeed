@@ -6,7 +6,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.redis import RedisStorage
 from app.config import settings
 from app.scheduler import start_scheduler
-from bot.handlers import start, pet_creation, nutrition, reminders, ai_handler, weight, meal_builder
+from bot.handlers import start, pet_creation, nutrition, reminders, ai_handler, weight, meal_builder, feedback
 
 logging.basicConfig(level=logging.INFO)
 
@@ -22,6 +22,7 @@ async def main():
     dp.include_router(ai_handler.router)
     dp.include_router(weight.router)
     dp.include_router(meal_builder.router)
+    dp.include_router(feedback.router)
     start_scheduler(bot)
     await dp.start_polling(bot, drop_pending_updates=True)
 
