@@ -15,6 +15,7 @@ from app.models.breed_risk import BreedRisk
 from app.models.stop_food import StopFood
 from app.models.food_category import FoodCategory
 from app.models.food_item import FoodItem
+from app.models.user_feedback import UserFeedback
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 templates = Jinja2Templates(directory="app/templates")
@@ -296,3 +297,25 @@ async def seed_nutrition(request: Request, db: AsyncSession = Depends(get_db)):
         db.add_all(records)
         await db.commit()
     return RedirectResponse("/admin/nutrition?msg=Заполнено+успешно", status_code=302)
+
+
+@router.get("/feedback", response_class=HTMLResponse)
+async def feedback_list(request: Request, db: AsyncSession = Depends(get_db)):
+    if not check_auth(request):
+        return RedirectResponse("/admin/login")
+    rows = (
+        await db.execute(
+            select(UserFeedback).order_by(UserFeedback.created_at.desc())
+        )
+    ).scalars().all()
+    total = len(rows)
+    avg_rating = round(sum(r.rating for r in rows) / total, 2) if total else 0
+    feature_counts: dict[str, int] = {}
+    for r in rows:
+        feature_counts[r.top_feature] = feature_counts.get(r.top_feature, 0) + 1
+    return templates.TemplateResponse(request, "admin/feedback.html", {
+        "rows": rows,
+        "total": total,
+        "avg_rating": avg_rating,
+        "feature_counts": feature_counts,
+    })
