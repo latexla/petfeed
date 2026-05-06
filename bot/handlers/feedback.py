@@ -85,21 +85,26 @@ async def skip_comment(callback: CallbackQuery, state: FSMContext):
 
 
 async def _submit(telegram_id: int, data: dict, comment: str | None, reply_fn, pet_name: str):
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            f"{settings.BACKEND_URL}/v1/feedback",
-            json={
-                "rating": data.get("fb_rating", 3),
-                "top_feature": data.get("fb_feature", ""),
-                "comment": comment,
-                "source": data.get("fb_source", "manual"),
-            },
-            headers={"X-Telegram-Id": str(telegram_id)},
-        )
+    status_code = 0
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(
+                f"{settings.BACKEND_URL}/v1/feedback",
+                json={
+                    "rating": data.get("fb_rating", 3),
+                    "top_feature": data.get("fb_feature", ""),
+                    "comment": comment,
+                    "source": data.get("fb_source", "manual"),
+                },
+                headers={"X-Telegram-Id": str(telegram_id)},
+            )
+        status_code = resp.status_code
+    except Exception:
+        status_code = 0
 
-    if resp.status_code == 409:
+    if status_code == 409:
         text = "Ты уже оставлял отзыв, спасибо! Если хочешь добавить — напиши в поддержку."
-    elif resp.status_code == 201:
+    elif status_code == 201:
         text = "Спасибо! Твой отзыв помогает нам стать лучше 🙏"
     else:
         text = "Что-то пошло не так. Попробуй позже."
