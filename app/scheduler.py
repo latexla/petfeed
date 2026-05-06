@@ -1,8 +1,9 @@
 import logging
 import ssl
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from sqlalchemy import select, cast, Date
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.config import settings
 
@@ -59,8 +60,52 @@ async def check_and_send_reminders():
     await engine.dispose()
 
 
+async def send_feedback_requests():
+    if _bot is None:
+        return
+    from app.models.user import User
+    from app.models.user_feedback import UserFeedback
+
+    target_date = date.today() - timedelta(days=7)
+    engine = create_async_engine(settings.async_database_url, connect_args={"ssl": _ssl_ctx})
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async with session_factory() as session:
+        already_submitted = select(UserFeedback.user_id)
+        stmt = (
+            select(User)
+            .where(
+                cast(User.created_at, Date) == target_date,
+                User.is_active.is_(True),
+                ~User.id.in_(already_submitted),
+            )
+        )
+        users = (await session.execute(stmt)).scalars().all()
+
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💬 Оставить отзыв", callback_data="feedback_start")]
+        ])
+
+        for user in users:
+            try:
+                await _bot.send_message(
+                    chat_id=user.telegram_id,
+                    text=(
+                        "Привет! Ты уже неделю с нами 🐾\n\n"
+                        "Расскажи, как тебе PetFeed? Займёт 30 секунд "
+                        "и поможет нам сделать бота лучше."
+                    ),
+                    reply_markup=kb,
+                )
+            except Exception as e:
+                logger.warning(f"Feedback request failed for {user.telegram_id}: {e}")
+
+    await engine.dispose()
+
+
 def start_scheduler(bot):
     set_bot(bot)
     scheduler.add_job(check_and_send_reminders, "cron", minute="*", id="reminders")
+    scheduler.add_job(send_feedback_requests, "cron", hour=12, minute=0, id="feedback_requests")
     scheduler.start()
     logger.info("Scheduler started")
