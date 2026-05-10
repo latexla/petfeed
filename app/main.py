@@ -24,11 +24,12 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="PetFeed API", version="1.0.0", lifespan=lifespan)
 
 app.middleware("http")(telegram_auth_middleware)
-_origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()] or ["*"]
+_origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
+_credentials = bool(_origins)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_origins,
-    allow_credentials=True,
+    allow_origins=_origins or ["*"],
+    allow_credentials=_credentials,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Telegram-Id", "X-Api-Key", "X-Admin-Token"],
 )

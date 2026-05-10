@@ -16,7 +16,7 @@ from app.services.auth_service import (
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-_COOKIE = dict(httponly=True, secure=True, samesite="strict", max_age=604800)
+_COOKIE = dict(httponly=True, secure=True, samesite="none", max_age=604800)
 
 
 class InitDataRequest(BaseModel):
