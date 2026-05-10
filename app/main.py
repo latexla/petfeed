@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,11 +7,15 @@ from app.middleware.auth import telegram_auth_middleware
 from app.routers import users, pets, nutrition, reminders, ai, weight, breeds, meal, feedback
 from app.routers import admin
 
+_log = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from app.database import engine, Base
     import app.models  # noqa: F401
+    if settings.JWT_SECRET == "change-me-in-production":
+        _log.warning("JWT_SECRET is set to the default value — set a strong secret in production!")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
