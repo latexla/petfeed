@@ -13,13 +13,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ isReady: false, error: null });
 
   useEffect(() => {
-    const initData = tg?.initData;
-    if (!initData) {
+    if (!tg?.initData) {
       setState({ isReady: false, error: 'Открой через Telegram' });
       return;
     }
-    tg!.ready();
-    authMiniapp(initData)
+    tg.ready();
+    authMiniapp(tg.initData)
       .then(() => setState({ isReady: true, error: null }))
       .catch((err) => {
         const msg =
