@@ -7,7 +7,7 @@ const GOAL_LABELS: Record<string, string> = {
   maintain: 'Поддержание веса', lose: 'Похудение', gain: 'Набор веса', growth: 'Рост',
 };
 
-const BOT_USERNAME = import.meta.env.VITE_BOT_USERNAME as string ?? 'PetFeedBot';
+const BOT_USERNAME = (import.meta.env.VITE_BOT_USERNAME as string | undefined) ?? 'PetFeedBot';
 
 export function Profile() {
   const { pets, activePet, setActivePet, loading } = usePet();

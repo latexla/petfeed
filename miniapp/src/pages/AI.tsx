@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AIResponse, askAI } from '../api/ai';
 import { usePet } from '../contexts/PetContext';
 
-interface Message { role: 'user' | 'assistant'; text: string; }
+interface Message { id: number; role: 'user' | 'assistant'; text: string; }
 
 const DAILY_LIMIT = 10;
 
@@ -15,6 +15,7 @@ export function AI() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const msgId = useRef(0);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -25,20 +26,21 @@ export function AI() {
     if (!question || !activePet || loading) return;
 
     setInput('');
-    setMessages((prev) => [...prev, { role: 'user', text: question }]);
+    setMessages((prev) => [...prev, { id: msgId.current++, role: 'user', text: question }]);
     setLoading(true);
 
     try {
       const res: AIResponse = await askAI(activePet.id, question);
-      setMessages((prev) => [...prev, { role: 'assistant', text: res.answer }]);
+      setMessages((prev) => [...prev, { id: msgId.current++, role: 'assistant', text: res.answer }]);
       setRequestsLeft(res.requests_left);
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
+      const isAxiosError = err !== null && typeof err === 'object' && 'response' in err;
+      const status = isAxiosError ? (err as { response?: { status?: number } }).response?.status : undefined;
       const reply =
         status === 429
           ? `Лимит ${DAILY_LIMIT} запросов/день исчерпан. Возвращайся завтра!`
           : 'Что-то пошло не так, попробуй ещё раз.';
-      setMessages((prev) => [...prev, { role: 'assistant', text: reply }]);
+      setMessages((prev) => [...prev, { id: msgId.current++, role: 'assistant', text: reply }]);
       if (status === 429) setRequestsLeft(0);
     } finally {
       setLoading(false);
@@ -73,9 +75,9 @@ export function AI() {
             <p style={{ fontSize: 12, marginTop: 8 }}>Например: «Можно ли давать курицу каждый день?»</p>
           </div>
         )}
-        {messages.map((m, i) => (
+        {messages.map((m) => (
           <div
-            key={i}
+            key={m.id}
             style={{
               display: 'flex',
               justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start',
