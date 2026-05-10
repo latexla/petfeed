@@ -11,3 +11,6 @@ build/
 .venv/
 venv/
 node_modules/
+miniapp/node_modules/
+miniapp/dist/
+miniapp/.env.local

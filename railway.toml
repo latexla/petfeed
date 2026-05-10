@@ -9,3 +9,10 @@ restartPolicyType = "on_failure"
 [services.bot.deploy]
 startCommand = "python -m bot.main"
 restartPolicyType = "on_failure"
+
+[services.miniapp.build]
+buildCommand = "cd miniapp && npm install && npm run build"
+
+[services.miniapp.deploy]
+startCommand = "cd miniapp && npx serve dist -p $PORT --single"
+restartPolicyType = "on_failure"
