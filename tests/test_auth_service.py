@@ -57,3 +57,48 @@ def test_jwt_wrong_secret():
 def test_jwt_bad_token():
     with pytest.raises(ValueError):
         verify_jwt("not.a.valid.token", "any")
+
+
+from unittest.mock import AsyncMock, MagicMock
+
+from app.services.auth_service import (
+    create_refresh_token, verify_refresh_token, delete_refresh_token
+)
+
+
+@pytest.mark.asyncio
+async def test_create_refresh_token_stores_in_redis():
+    redis = MagicMock()
+    redis.setex = AsyncMock()
+    token = await create_refresh_token(telegram_id=42, redis=redis)
+    assert len(token) == 36  # UUID4 format
+    redis.setex.assert_called_once()
+    call_args = redis.setex.call_args
+    assert call_args[0][0] == f"refresh:{token}"
+    assert call_args[0][1] == 604800
+    assert call_args[0][2] == "42"
+
+
+@pytest.mark.asyncio
+async def test_verify_refresh_token_returns_telegram_id():
+    redis = MagicMock()
+    redis.get = AsyncMock(return_value="99")
+    result = await verify_refresh_token("some-uuid", redis)
+    assert result == 99
+    redis.get.assert_called_once_with("refresh:some-uuid")
+
+
+@pytest.mark.asyncio
+async def test_verify_refresh_token_raises_on_missing():
+    redis = MagicMock()
+    redis.get = AsyncMock(return_value=None)
+    with pytest.raises(ValueError, match="invalid or expired"):
+        await verify_refresh_token("bad-token", redis)
+
+
+@pytest.mark.asyncio
+async def test_delete_refresh_token_deletes_key():
+    redis = MagicMock()
+    redis.delete = AsyncMock()
+    await delete_refresh_token("some-uuid", redis)
+    redis.delete.assert_called_once_with("refresh:some-uuid")

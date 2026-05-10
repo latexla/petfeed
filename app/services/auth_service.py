@@ -23,7 +23,10 @@ def verify_initdata(init_data: str, bot_token: str) -> dict:
     if not hmac.compare_digest(computed, received_hash):
         raise ValueError("invalid hash")
 
-    auth_date = int(parsed.get("auth_date", 0))
+    try:
+        auth_date = int(parsed.get("auth_date", 0))
+    except (ValueError, TypeError):
+        raise ValueError("initData expired")
     if time.time() - auth_date > 3600:
         raise ValueError("initData expired")
 
