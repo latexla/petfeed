@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.middleware.auth import telegram_auth_middleware
-from app.routers import users, pets, nutrition, reminders, ai, weight, breeds, meal, feedback
+from app.routers import users, pets, nutrition, reminders, ai, weight, breeds, meal, feedback, auth
 from app.routers import admin
 
 _log = logging.getLogger(__name__)
@@ -42,6 +42,7 @@ app.include_router(weight.router, prefix="/v1")
 app.include_router(breeds.router, prefix="/v1")
 app.include_router(meal.router, prefix="/v1")
 app.include_router(feedback.router, prefix="/v1")
+app.include_router(auth.router, prefix="/v1")
 app.include_router(admin.router)
 
 
