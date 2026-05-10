@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.config import settings
 from app.middleware.auth import telegram_auth_middleware
 from app.routers import users, pets, nutrition, reminders, ai, weight, breeds, meal, feedback
 from app.routers import admin
@@ -18,7 +19,14 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="PetFeed API", version="1.0.0", lifespan=lifespan)
 
 app.middleware("http")(telegram_auth_middleware)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+_origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()] or ["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Telegram-Id", "X-Api-Key", "X-Admin-Token"],
+)
 
 app.include_router(users.router, prefix="/v1")
 app.include_router(pets.router, prefix="/v1")

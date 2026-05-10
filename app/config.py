@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     @property
     def async_database_url(self) -> str:
         return self.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1).replace("postgres://", "postgresql+asyncpg://", 1)
+
     REDIS_URL: str
     TELEGRAM_BOT_TOKEN: str
     BACKEND_URL: str = "http://localhost:8000"
@@ -14,6 +15,11 @@ class Settings(BaseSettings):
     DEEPSEEK_API_KEY: str = ""
     GROQ_API_KEY: str = ""
     AI_DAILY_LIMIT: int = 10
+
+    MINIAPP_URL: str = ""
+    JWT_SECRET: str = "change-me-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    ALLOWED_ORIGINS: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
