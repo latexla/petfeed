@@ -76,8 +76,12 @@ async def cmd_start(message: Message, state: FSMContext):
     await state.update_data(active_pet_id=pet["id"], active_pet_name=pet["name"])
 
     if len(pets) == 1:
+        miniapp_note = (
+            f'\n\n🌐 Или открой <a href="{settings.MINIAPP_URL}">удобный интерфейс</a>'
+            if settings.MINIAPP_URL else ""
+        )
         await message.answer(
-            "С возвращением!\n\nВыбери действие:",
+            f"С возвращением!\n\nВыбери действие:{miniapp_note}",
             parse_mode="HTML",
             reply_markup=main_menu_keyboard(pet["name"]),
         )

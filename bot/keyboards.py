@@ -1,4 +1,5 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from app.config import settings
 
 
 def weight_after_keyboard(pet_id: int, pet_name: str = "") -> InlineKeyboardMarkup:
@@ -83,16 +84,21 @@ def main_menu_keyboard(pet_name: str = "") -> InlineKeyboardMarkup:
     if pet_name:
         rows.append([InlineKeyboardButton(text=f"🐾 {pet_name} ▼", callback_data="menu:switch_pet")])
     rows += [
-        [InlineKeyboardButton(text="Рацион питания",       callback_data="menu:nutrition")],
-        [InlineKeyboardButton(text="Что нельзя давать",    callback_data="menu:stoplist")],
-        [InlineKeyboardButton(text="Напоминания",           callback_data="menu:reminders")],
-        [InlineKeyboardButton(text="Обновить вес",          callback_data="menu:weight")],
-        [InlineKeyboardButton(text="Заказать корм",         callback_data="menu:order")],
-        [InlineKeyboardButton(text="Задать вопрос AI",      callback_data="menu:ai")],
-        [InlineKeyboardButton(text="Профиль питомца",       callback_data="menu:pet")],
-        [InlineKeyboardButton(text="💬 Обратная связь",     callback_data="menu:feedback")],
-        [InlineKeyboardButton(text="+ Добавить питомца",    callback_data="add_pet")],
+        [InlineKeyboardButton(text="Рацион питания", callback_data="menu:nutrition")],
+        [InlineKeyboardButton(text="Что нельзя давать", callback_data="menu:stoplist")],
+        [InlineKeyboardButton(text="Напоминания", callback_data="menu:reminders")],
+        [InlineKeyboardButton(text="Обновить вес", callback_data="menu:weight")],
+        [InlineKeyboardButton(text="Заказать корм", callback_data="menu:order")],
+        [InlineKeyboardButton(text="Задать вопрос AI", callback_data="menu:ai")],
+        [InlineKeyboardButton(text="Профиль питомца", callback_data="menu:pet")],
+        [InlineKeyboardButton(text="💬 Обратная связь", callback_data="menu:feedback")],
     ]
+    if settings.MINIAPP_URL:
+        rows.append([InlineKeyboardButton(
+            text="🌐 Открыть приложение",
+            web_app=WebAppInfo(url=settings.MINIAPP_URL),
+        )])
+    rows.append([InlineKeyboardButton(text="+ Добавить питомца", callback_data="add_pet")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
