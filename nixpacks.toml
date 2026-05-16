@@ -1,2 +1,1 @@
-[start]
-cmd = "bash start.sh"
+# Start command is defined per-service in railway.toml
