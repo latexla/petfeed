@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { c } from './theme';
 import { PetProvider } from './contexts/PetContext';
 import { TabBar } from './components/TabBar';
 import { AI } from './pages/AI';
@@ -15,14 +16,14 @@ function AppRoutes() {
     return (
       <div style={{ padding: 24, textAlign: 'center', marginTop: 60 }}>
         <div style={{ fontSize: 40, marginBottom: 12 }}>🐾</div>
-        <p style={{ color: '#666' }}>{error}</p>
+        <p style={{ color: c.hint }}>{error}</p>
       </div>
     );
   }
 
   if (!isReady) {
     return (
-      <div style={{ padding: 24, textAlign: 'center', marginTop: 60, color: '#999' }}>
+      <div style={{ padding: 24, textAlign: 'center', marginTop: 60, color: c.hint }}>
         Загрузка...
       </div>
     );

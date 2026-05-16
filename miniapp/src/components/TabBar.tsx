@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
+import { c } from '../theme';
 
 const TABS = [
   { path: '/', label: 'Главная', icon: '🏠' },
@@ -16,8 +17,8 @@ export function TabBar() {
   return (
     <nav style={{
       position: 'fixed', bottom: 0, left: 0, right: 0,
-      display: 'flex', background: '#fff',
-      borderTop: '1px solid #e5e5e5', zIndex: 100,
+      display: 'flex', background: c.bg,
+      borderTop: `1px solid ${c.border}`, zIndex: 100,
     }}>
       {TABS.map((tab) => {
         const active = location.pathname === tab.path;
@@ -27,7 +28,7 @@ export function TabBar() {
             onClick={() => navigate(tab.path)}
             style={{
               flex: 1, padding: '8px 0', border: 'none', background: 'none',
-              color: active ? '#007aff' : '#8e8e93',
+              color: active ? c.accent : c.hint,
               display: 'flex', flexDirection: 'column', alignItems: 'center',
               gap: 2, fontSize: 10, cursor: 'pointer',
             }}

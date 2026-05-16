@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AIResponse, askAI } from '../api/ai';
 import { usePet } from '../contexts/PetContext';
+import { c } from '../theme';
 
 interface Message { id: number; role: 'user' | 'assistant'; text: string; }
 
@@ -50,26 +51,26 @@ export function AI() {
   const atLimit = requestsLeft === 0;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: c.bg }}>
       <div style={{
         display: 'flex', alignItems: 'center', padding: '12px 16px',
-        borderBottom: '1px solid #e5e5e5', background: '#fff',
+        borderBottom: `1px solid ${c.border}`, background: c.bg,
       }}>
         <button
           onClick={() => navigate(-1)}
-          style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', padding: '0 8px 0 0' }}
+          style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', padding: '0 8px 0 0', color: c.accent }}
         >
           ‹
         </button>
-        <span style={{ fontWeight: 600, fontSize: 17, flex: 1 }}>AI-ассистент</span>
+        <span style={{ fontWeight: 600, fontSize: 17, flex: 1, color: c.text }}>AI-ассистент</span>
         <span style={{ fontSize: 12, color: requestsLeft > 3 ? '#34c759' : '#ff9500' }}>
           {requestsLeft}/{DAILY_LIMIT}
         </span>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', background: '#f5f5f7' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', background: c.bgSecondary }}>
         {messages.length === 0 && (
-          <div style={{ textAlign: 'center', color: '#8e8e93', marginTop: 40 }}>
+          <div style={{ textAlign: 'center', color: c.hint, marginTop: 40 }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>🤖</div>
             <p>Задай вопрос о питании {activePet?.name ?? 'питомца'}</p>
             <p style={{ fontSize: 12, marginTop: 8 }}>Например: «Можно ли давать курицу каждый день?»</p>
@@ -86,8 +87,8 @@ export function AI() {
           >
             <div style={{
               maxWidth: '80%', padding: '10px 14px', borderRadius: 16,
-              background: m.role === 'user' ? '#007aff' : '#fff',
-              color: m.role === 'user' ? '#fff' : '#000',
+              background: m.role === 'user' ? c.accent : c.bg,
+              color: m.role === 'user' ? c.accentText : c.text,
               fontSize: 15, lineHeight: 1.5,
               boxShadow: '0 1px 2px rgba(0,0,0,.08)',
             }}>
@@ -95,14 +96,12 @@ export function AI() {
             </div>
           </div>
         ))}
-        {loading && (
-          <div style={{ color: '#8e8e93', fontSize: 14 }}>Думаю...</div>
-        )}
+        {loading && <div style={{ color: c.hint, fontSize: 14 }}>Думаю...</div>}
         <div ref={bottomRef} />
       </div>
 
       <div style={{
-        padding: '10px 16px', background: '#fff', borderTop: '1px solid #e5e5e5',
+        padding: '10px 16px', background: c.bg, borderTop: `1px solid ${c.border}`,
         display: 'flex', gap: 10, alignItems: 'center',
       }}>
         <input
@@ -113,16 +112,16 @@ export function AI() {
           disabled={atLimit || loading}
           style={{
             flex: 1, padding: '10px 14px', borderRadius: 20,
-            border: '1px solid #ddd', fontSize: 15, outline: 'none',
-            background: atLimit ? '#f5f5f7' : '#fff',
+            border: `1px solid ${c.border}`, fontSize: 15, outline: 'none',
+            background: atLimit ? c.bgSecondary : c.bg, color: c.text,
           }}
         />
         <button
           onClick={send}
           disabled={atLimit || loading || !input.trim()}
           style={{
-            width: 44, height: 44, borderRadius: 22, background: '#007aff',
-            color: '#fff', border: 'none', cursor: 'pointer', fontSize: 20,
+            width: 44, height: 44, borderRadius: 22, background: c.accent,
+            color: c.accentText, border: 'none', cursor: 'pointer', fontSize: 20,
             opacity: atLimit || loading || !input.trim() ? 0.4 : 1,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}

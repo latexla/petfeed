@@ -1,4 +1,5 @@
 import { usePet } from '../contexts/PetContext';
+import { c } from '../theme';
 
 const SPECIES_EMOJI: Record<string, string> = {
   cat: '🐱', dog: '🐶', rodent: '🐹', bird: '🐦', reptile: '🦎',
@@ -12,8 +13,8 @@ const BOT_USERNAME = (import.meta.env.VITE_BOT_USERNAME as string | undefined) ?
 export function Profile() {
   const { pets, activePet, setActivePet, loading } = usePet();
 
-  if (loading) return <div style={{ padding: 24, color: '#999' }}>Загрузка...</div>;
-  if (!activePet) return <div style={{ padding: 24, color: '#999' }}>Питомец не найден</div>;
+  if (loading) return <div style={{ padding: 24, color: c.hint }}>Загрузка...</div>;
+  if (!activePet) return <div style={{ padding: 24, color: c.hint }}>Питомец не найден</div>;
 
   const emoji = SPECIES_EMOJI[activePet.species] ?? '🐾';
   const years = Math.floor(activePet.age_months / 12);
@@ -22,12 +23,12 @@ export function Profile() {
 
   return (
     <div style={{ padding: 16, paddingBottom: 80 }}>
-      <h2 style={{ marginBottom: 16 }}>Профиль</h2>
+      <h2 style={{ marginBottom: 16, color: c.text }}>Профиль</h2>
 
-      <div style={{ background: '#f5f5f7', borderRadius: 16, padding: 16, marginBottom: 16 }}>
+      <div style={{ background: c.bgSecondary, borderRadius: 16, padding: 16, marginBottom: 16 }}>
         <div style={{ fontSize: 40 }}>{emoji}</div>
-        <div style={{ fontWeight: 700, fontSize: 20, marginTop: 8 }}>{activePet.name}</div>
-        <div style={{ color: '#6e6e73', fontSize: 14, marginTop: 4, lineHeight: 1.6 }}>
+        <div style={{ fontWeight: 700, fontSize: 20, marginTop: 8, color: c.text }}>{activePet.name}</div>
+        <div style={{ color: c.hint, fontSize: 14, marginTop: 4, lineHeight: 1.6 }}>
           <div>Порода: {activePet.breed ?? 'Метис'}</div>
           <div>Вес: {activePet.weight_kg} кг</div>
           <div>Возраст: {ageStr}</div>
@@ -37,7 +38,7 @@ export function Profile() {
           href={`https://t.me/${BOT_USERNAME}`}
           target="_blank"
           rel="noreferrer"
-          style={{ display: 'inline-block', marginTop: 10, color: '#007aff', fontSize: 14 }}
+          style={{ display: 'inline-block', marginTop: 10, color: c.link, fontSize: 14 }}
         >
           Изменить в боте →
         </a>
@@ -45,7 +46,7 @@ export function Profile() {
 
       {pets.length > 1 && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 15 }}>Мои питомцы</div>
+          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 15, color: c.text }}>Мои питомцы</div>
           {pets.map((p) => (
             <button
               key={p.id}
@@ -53,9 +54,9 @@ export function Profile() {
               style={{
                 display: 'block', width: '100%', textAlign: 'left',
                 padding: '12px 16px', marginBottom: 6,
-                background: p.id === activePet.id ? '#e8f0ff' : '#f5f5f7',
-                border: p.id === activePet.id ? '1.5px solid #007aff' : '1.5px solid transparent',
-                borderRadius: 12, cursor: 'pointer', fontSize: 15,
+                background: c.bgSecondary,
+                border: p.id === activePet.id ? `1.5px solid ${c.accent}` : '1.5px solid transparent',
+                borderRadius: 12, cursor: 'pointer', fontSize: 15, color: c.text,
               }}
             >
               {SPECIES_EMOJI[p.species] ?? '🐾'} {p.name}
@@ -70,7 +71,7 @@ export function Profile() {
         rel="noreferrer"
         style={{
           display: 'block', width: '100%', padding: 14, textAlign: 'center',
-          background: '#fff', border: '1.5px solid #007aff', color: '#007aff',
+          background: c.bg, border: `1.5px solid ${c.accent}`, color: c.accent,
           borderRadius: 14, fontSize: 15, fontWeight: 600, textDecoration: 'none',
         }}
       >
