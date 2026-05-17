@@ -50,3 +50,7 @@ class PetService:
             return False
         await self.repo.delete(pet)
         return True
+
+    async def get_by_id_no_owner(self, pet_id: int):
+        """Get pet by ID without owner check — for internal scheduler use only."""
+        return await self.repo.get_by_id_no_owner(pet_id)

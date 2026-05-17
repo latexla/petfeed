@@ -36,3 +36,10 @@ class PetRepository:
     async def delete(self, pet: Pet) -> None:
         pet.is_active = False
         await self.session.commit()
+
+    async def get_by_id_no_owner(self, pet_id: int) -> Pet | None:
+        """Fetch pet by ID without owner check — for internal scheduler use only."""
+        result = await self.session.execute(
+            select(Pet).where(Pet.id == pet_id, Pet.is_active == True)
+        )
+        return result.scalar_one_or_none()

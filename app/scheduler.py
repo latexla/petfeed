@@ -103,9 +103,60 @@ async def send_feedback_requests():
     await engine.dispose()
 
 
+async def save_daily_sessions():
+    """Nightly job: save all Redis daily sessions from yesterday to feeding_sessions DB."""
+    yesterday = str(date.today() - timedelta(days=1))
+
+    engine = create_async_engine(settings.async_database_url, connect_args={"ssl": _ssl_ctx})
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async with session_factory() as db_session:
+        from app.repositories.meal_repo import MealRepository
+        from app.repositories.pet_repo import PetRepository
+        from app.repositories.nutrition_repo import NutritionRepository
+        from app.services.pet_service import PetService
+        from app.routers.meal import _save_daily_session
+        import json as _json
+
+        repo = MealRepository(db_session)
+        keys = await repo.scan_daily_keys()
+
+        for key in keys:
+            try:
+                from app.redis_client import get_redis
+                redis = get_redis()
+                raw = await redis.get(key)
+                if not raw:
+                    continue
+                data = _json.loads(raw)
+                if data.get("date") != yesterday:
+                    continue
+
+                parts = key.split(":")
+                if len(parts) != 3:
+                    continue
+                pet_id = int(parts[2])
+
+                pet = await PetService(PetRepository(db_session)).get_by_id_no_owner(pet_id)
+                if not pet:
+                    continue
+                ration = await NutritionRepository(db_session).get_ration_by_pet(pet_id)
+                if not ration:
+                    continue
+
+                await _save_daily_session(data, pet, ration, db_session)
+                await redis.delete(key)
+                logger.info("Nightly: saved daily session for pet %s (%s)", pet_id, yesterday)
+            except Exception as e:
+                logger.error("Nightly: failed to process key %s: %s", key, e)
+
+    await engine.dispose()
+
+
 def start_scheduler(bot):
     set_bot(bot)
     scheduler.add_job(check_and_send_reminders, "cron", minute="*", id="reminders")
     scheduler.add_job(send_feedback_requests, "cron", hour=12, minute=0, id="feedback_requests")
+    scheduler.add_job(save_daily_sessions, "cron", hour=0, minute=5, id="save_daily_sessions")
     scheduler.start()
     logger.info("Scheduler started")
