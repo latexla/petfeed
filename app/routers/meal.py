@@ -1,3 +1,7 @@
+import json as _json
+import logging
+from datetime import date as _date
+
 from fastapi import APIRouter, Depends, Request, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +14,50 @@ from app.services.user_service import UserService
 from app.services.pet_service import PetService
 from app.services.meal_service import MealService
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/meal", tags=["meal"])
+
+
+async def _save_daily_session(
+    session: dict,
+    pet,
+    ration,
+    db: AsyncSession,
+) -> None:
+    """Save a Redis daily session to feeding_sessions DB. Silently logs errors."""
+    if not session.get("items"):
+        return
+    try:
+        repo = MealRepository(db)
+        svc = MealService(repo)
+        breed_risks = await NutritionRepository(db).get_breed_risks(pet.breed or "")
+        totals = svc._sum_items(session["items"])
+        score, quality, tips = svc.compute_quality(
+            totals=totals,
+            daily_target=session["daily_target"],
+            pet_species=pet.species,
+            breed_risks=breed_risks,
+            age_months=pet.age_months,
+            weight_kg=float(pet.weight_kg),
+        )
+        session_date = _date.fromisoformat(session["date"])
+        kcal_target = session["daily_target"].get("kcal", 0)
+        kcal_pct = totals.get("kcal", 0) / kcal_target * 100 if kcal_target > 0 else None
+        await repo.save_feeding_session(
+            pet_id=pet.id,
+            session_date=session_date,
+            total_kcal=totals.get("kcal", 0),
+            protein_g=totals.get("protein_g", 0),
+            fat_g=totals.get("fat_g", 0),
+            items_count=len(session["items"]),
+            score=score,
+            quality=quality,
+            tips=tips,
+            kcal_pct=kcal_pct,
+        )
+    except Exception as e:
+        logger.error(f"Failed to save daily session for pet {pet.id}: {e}")
 
 
 class AddProductRequest(BaseModel):
@@ -215,3 +262,241 @@ async def undo_last(pet_id: int, request: Request,
     if updated is None:
         raise HTTPException(status_code=404, detail={"error": "empty_session"})
     return {"status": "ok", "items_count": len(updated.get("items", []))}
+
+
+@router.get("/food-search")
+async def food_search(
+    q: str,
+    species: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    if len(q.strip()) < 2:
+        return []
+    items = await MealRepository(db).search_food_items(q.strip(), species, limit=10)
+    return [
+        {
+            "id": fi.id,
+            "name": fi.name,
+            "category": fi.category,
+            "kcal_per_100g": float(fi.kcal_per_100g),
+            "protein_g": float(fi.protein_g),
+            "fat_g": float(fi.fat_g),
+            "carb_g": float(fi.carb_g),
+        }
+        for fi in items
+    ]
+
+
+class DailyAddRequest(BaseModel):
+    pet_id: int
+    food_item_id: int
+    grams: float
+    food_type: str = "natural"
+
+
+@router.post("/daily/add")
+async def daily_add_product(
+    body: DailyAddRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    if body.grams <= 0:
+        raise HTTPException(status_code=400, detail={"error": "invalid_grams"})
+
+    telegram_id = request.state.telegram_id
+    today = str(_date.today())
+
+    user = await UserService(UserRepository(db)).get_or_create(telegram_id=telegram_id)
+    pet = await PetService(PetRepository(db)).get_by_id(pet_id=body.pet_id, owner_id=user.id)
+    if pet is None:
+        raise HTTPException(status_code=404, detail={"error": "not_found"})
+
+    ration = await NutritionRepository(db).get_ration_by_pet(body.pet_id)
+    if ration is None:
+        raise HTTPException(status_code=400, detail={"error": "no_ration"})
+
+    repo = MealRepository(db)
+    fi = await repo.get_food_item_by_id(body.food_item_id)
+    if fi is None:
+        raise HTTPException(status_code=404, detail={"error": "food_item_not_found"})
+
+    # Day rollover check
+    session = await repo.get_daily_session(telegram_id, body.pet_id)
+    if session and session.get("date") != today:
+        await _save_daily_session(session, pet, ration, db)
+        session = None
+
+    # Build daily target on first add
+    if session is None:
+        svc = MealService(repo)
+        breed_risks = await NutritionRepository(db).get_breed_risks(pet.breed or "")
+        required_micros = svc.get_required_micros(pet.species, breed_risks)
+        micro_targets = svc.compute_micro_targets(
+            mer=float(ration.daily_calories),
+            meals_per_day=1,
+            species=pet.species,
+            required_micros=required_micros,
+        )
+        daily_grams_est = float(ration.daily_calories) / 350 * 100
+        pct_prot = 0.225 if pet.age_months < 12 else 0.18
+        fat_pct_kcal = 0.25 if pet.age_months < 12 else 0.20
+        session = {
+            "date": today,
+            "items": [],
+            "daily_target": {
+                "kcal": float(ration.daily_calories),
+                "protein_g": round(daily_grams_est * pct_prot, 1),
+                "fat_g": round(float(ration.daily_calories) * fat_pct_kcal / 9, 1),
+                **micro_targets,
+            },
+        }
+
+    factor = body.grams / 100
+    item = {
+        "food_item_id": fi.id,
+        "name": fi.name,
+        "grams": round(body.grams, 1),
+        "kcal": round(float(fi.kcal_per_100g) * factor, 1),
+        "protein_g": round(float(fi.protein_g) * factor, 1),
+        "fat_g": round(float(fi.fat_g) * factor, 1),
+        "carb_g": round(float(fi.carb_g) * factor, 1),
+        "calcium_mg": round(float(fi.calcium_mg or 0) * factor, 1),
+        "phosphorus_mg": round(float(fi.phosphorus_mg or 0) * factor, 1),
+        "omega3_mg": round(float(fi.omega3_mg or 0) * factor, 1),
+        "taurine_mg": round(float(fi.taurine_mg or 0) * factor, 1),
+    }
+    session["items"].append(item)
+    await repo.save_daily_session(telegram_id, body.pet_id, session)
+
+    svc = MealService(repo)
+    breed_risks = await NutritionRepository(db).get_breed_risks(pet.breed or "")
+    totals = svc._sum_items(session["items"])
+    score, quality, tips = svc.compute_quality(
+        totals=totals,
+        daily_target=session["daily_target"],
+        pet_species=pet.species,
+        breed_risks=breed_risks,
+        age_months=pet.age_months,
+        weight_kg=float(pet.weight_kg),
+    )
+
+    return {
+        "status": "added",
+        "item": item,
+        "items": session["items"],
+        "totals": totals,
+        "daily_target": session["daily_target"],
+        "quality_score": score,
+        "quality_label": quality,
+        "tips": tips,
+    }
+
+
+@router.get("/daily/summary/{pet_id}")
+async def get_daily_summary(
+    pet_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    telegram_id = request.state.telegram_id
+    today = str(_date.today())
+
+    user = await UserService(UserRepository(db)).get_or_create(telegram_id=telegram_id)
+    pet = await PetService(PetRepository(db)).get_by_id(pet_id=pet_id, owner_id=user.id)
+    if pet is None:
+        raise HTTPException(status_code=404, detail={"error": "not_found"})
+
+    repo = MealRepository(db)
+    session = await repo.get_daily_session(telegram_id, pet_id)
+
+    if session and session.get("date") != today:
+        ration = await NutritionRepository(db).get_ration_by_pet(pet_id)
+        if ration:
+            await _save_daily_session(session, pet, ration, db)
+        session = None
+
+    if not session:
+        return {"items": [], "totals": {}, "daily_target": None, "quality_score": 0, "quality_label": "poor", "tips": []}
+
+    svc = MealService(repo)
+    breed_risks = await NutritionRepository(db).get_breed_risks(pet.breed or "")
+    totals = svc._sum_items(session["items"])
+    score, quality, tips = svc.compute_quality(
+        totals=totals,
+        daily_target=session["daily_target"],
+        pet_species=pet.species,
+        breed_risks=breed_risks,
+        age_months=pet.age_months,
+        weight_kg=float(pet.weight_kg),
+    )
+
+    return {
+        "items": session["items"],
+        "totals": totals,
+        "daily_target": session["daily_target"],
+        "quality_score": score,
+        "quality_label": quality,
+        "tips": tips,
+    }
+
+
+@router.delete("/daily/reset/{pet_id}")
+async def reset_daily(
+    pet_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    telegram_id = request.state.telegram_id
+    repo = MealRepository(db)
+    session = await repo.get_daily_session(telegram_id, pet_id)
+    if session and session.get("items"):
+        user = await UserService(UserRepository(db)).get_or_create(telegram_id=telegram_id)
+        pet = await PetService(PetRepository(db)).get_by_id(pet_id=pet_id, owner_id=user.id)
+        ration = await NutritionRepository(db).get_ration_by_pet(pet_id)
+        if pet and ration:
+            await _save_daily_session(session, pet, ration, db)
+    await repo.delete_daily_session(telegram_id, pet_id)
+    return {"status": "ok"}
+
+
+@router.post("/daily/undo/{pet_id}")
+async def undo_daily_last(
+    pet_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    telegram_id = request.state.telegram_id
+    repo = MealRepository(db)
+    session = await repo.get_daily_session(telegram_id, pet_id)
+    if not session or not session.get("items"):
+        raise HTTPException(status_code=404, detail={"error": "empty_session"})
+    session["items"].pop()
+    await repo.save_daily_session(telegram_id, pet_id, session)
+    return {"status": "ok", "items_count": len(session["items"])}
+
+
+@router.get("/history/{pet_id}")
+async def get_meal_history(
+    pet_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    user = await UserService(UserRepository(db)).get_or_create(
+        telegram_id=request.state.telegram_id
+    )
+    pet = await PetService(PetRepository(db)).get_by_id(pet_id=pet_id, owner_id=user.id)
+    if pet is None:
+        raise HTTPException(status_code=404, detail={"error": "not_found"})
+    history = await MealRepository(db).get_feeding_history(pet_id, limit=30)
+    return [
+        {
+            "session_date": str(h.session_date),
+            "total_kcal": float(h.total_kcal),
+            "score": h.score,
+            "quality": h.quality,
+            "kcal_pct": float(h.kcal_pct) if h.kcal_pct else None,
+            "tips": _json.loads(h.tips) if h.tips else [],
+        }
+        for h in history
+    ]
