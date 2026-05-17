@@ -13,8 +13,9 @@ from app.models.breed_registry import BreedRegistry
 from app.models.breed_knowledge import BreedKnowledge
 from app.models.food_item import FoodItem
 from app.models.user_feedback import UserFeedback
+from app.models.feeding_session import FeedingSession
 
 __all__ = ["User", "Pet", "FeatureFlag", "Ration", "NutritionKnowledge",
            "FeedingReminder", "AiRequest", "WeightHistory",
            "FoodCategory", "BreedRisk", "StopFood", "BreedRegistry",
-           "BreedKnowledge", "FoodItem", "UserFeedback"]
+           "BreedKnowledge", "FoodItem", "UserFeedback", "FeedingSession"]
