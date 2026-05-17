@@ -402,13 +402,13 @@ class MealService:
         elif 0.75 <= ratio < 0.9:
             tips.append(f"Немного мало {label}")
             return 70, tips
-        elif 1.1 < ratio <= 1.3:
+        elif 1.1 < ratio <= min(1.3, upper_hard):
             tips.append(f"Немного много {label}")
             return 70, tips
         elif 0.5 <= ratio < 0.75:
             tips.append(low_tip)
             return 40, tips
-        elif 1.3 < ratio <= upper_hard:
+        elif min(1.3, upper_hard) < ratio <= upper_hard:
             tips.append(high_tip)
             return 40, tips
         elif ratio < 0.5:
@@ -471,7 +471,7 @@ class MealService:
         # 4. Required micros (remaining 20% split equally)
         required_micros = self.get_required_micros(pet_species, breed_risks)
         micro_keys = [m for m in required_micros if m in daily_target and daily_target[m] > 0]
-        micro_w = 20 // len(micro_keys) if micro_keys else 0
+        micro_w = round(20 / len(micro_keys)) if micro_keys else 0
         MICRO_LABELS = {
             "calcium_mg": "кальция", "phosphorus_mg": "фосфора",
             "taurine_mg": "таурина", "omega3_mg": "омега-3",
