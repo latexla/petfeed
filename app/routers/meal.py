@@ -57,7 +57,7 @@ async def _save_daily_session(
             kcal_pct=kcal_pct,
         )
     except Exception as e:
-        logger.error(f"Failed to save daily session for pet {pet.id}: {e}")
+        logger.error("Failed to save daily session for pet %s: %s", pet.id, e)
 
 
 class AddProductRequest(BaseModel):
@@ -321,6 +321,9 @@ async def daily_add_product(
     if fi is None:
         raise HTTPException(status_code=404, detail={"error": "food_item_not_found"})
 
+    svc = MealService(repo)
+    breed_risks = await NutritionRepository(db).get_breed_risks(pet.breed or "")
+
     # Day rollover check
     session = await repo.get_daily_session(telegram_id, body.pet_id)
     if session and session.get("date") != today:
@@ -329,8 +332,6 @@ async def daily_add_product(
 
     # Build daily target on first add
     if session is None:
-        svc = MealService(repo)
-        breed_risks = await NutritionRepository(db).get_breed_risks(pet.breed or "")
         required_micros = svc.get_required_micros(pet.species, breed_risks)
         micro_targets = svc.compute_micro_targets(
             mer=float(ration.daily_calories),
@@ -369,8 +370,6 @@ async def daily_add_product(
     session["items"].append(item)
     await repo.save_daily_session(telegram_id, body.pet_id, session)
 
-    svc = MealService(repo)
-    breed_risks = await NutritionRepository(db).get_breed_risks(pet.breed or "")
     totals = svc._sum_items(session["items"])
     score, quality, tips = svc.compute_quality(
         totals=totals,
@@ -414,6 +413,8 @@ async def get_daily_summary(
         ration = await NutritionRepository(db).get_ration_by_pet(pet_id)
         if ration:
             await _save_daily_session(session, pet, ration, db)
+        else:
+            logger.warning("Skipping session save for pet %s: ration missing", pet_id)
         session = None
 
     if not session:
