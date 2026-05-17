@@ -1,13 +1,22 @@
 import { useNavigate } from 'react-router-dom';
 import { NutritionCard } from '../components/NutritionCard';
 import { PetCard } from '../components/PetCard';
+import { MealSummaryCard } from '../components/MealSummaryCard';
+import { WeightCard } from '../components/WeightCard';
 import { usePet } from '../contexts/PetContext';
 import { useNutrition } from '../hooks/useNutrition';
+import { useMealSession } from '../hooks/useMealSession';
+import { useWeightHistory } from '../hooks/useWeightHistory';
 import { c } from '../theme';
 
 export function Home() {
   const { activePet, loading: petLoading, error: petError } = usePet();
   const { ration, loading: rationLoading } = useNutrition(activePet?.id ?? null);
+  const { summary: mealSummary, loading: mealLoading } = useMealSession(
+    activePet?.id ?? null,
+    activePet?.species ?? null,
+  );
+  const { history: weightHistory, loading: weightLoading } = useWeightHistory(activePet?.id ?? null);
   const navigate = useNavigate();
 
   if (petLoading) return <div style={{ padding: 24, color: c.hint }}>Загрузка...</div>;
@@ -35,6 +44,10 @@ export function Home() {
           {ration.notes}
         </div>
       )}
+
+      <MealSummaryCard summary={mealSummary} loading={mealLoading} />
+      <WeightCard history={weightHistory} loading={weightLoading} />
+
       <button
         onClick={() => navigate('/ai')}
         style={{

@@ -5,9 +5,11 @@ import { PetProvider } from './contexts/PetContext';
 import { TabBar } from './components/TabBar';
 import { AI } from './pages/AI';
 import { Home } from './pages/Home';
+import { Meal } from './pages/Meal';
 import { Nutrition } from './pages/Nutrition';
 import { Profile } from './pages/Profile';
 import { Reminders } from './pages/Reminders';
+import { Weight } from './pages/Weight';
 
 function AppRoutes() {
   const { isReady, error } = useAuth();
@@ -37,6 +39,8 @@ function AppRoutes() {
         <Route path="/reminders" element={<Reminders />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/ai" element={<AI />} />
+        <Route path="/meal" element={<Meal />} />
+        <Route path="/weight" element={<Weight />} />
       </Routes>
       <TabBar />
     </PetProvider>
