@@ -388,6 +388,126 @@ class MealService:
 
         return warnings
 
+    def _score_ratio(
+        self,
+        ratio: float,
+        label: str,
+        low_tip: str,
+        high_tip: str,
+        upper_hard: float = 3.0,
+    ) -> tuple[int, list[str]]:
+        tips: list[str] = []
+        if 0.9 <= ratio <= 1.1:
+            return 100, []
+        elif 0.75 <= ratio < 0.9:
+            tips.append(f"Немного мало {label}")
+            return 70, tips
+        elif 1.1 < ratio <= 1.3:
+            tips.append(f"Немного много {label}")
+            return 70, tips
+        elif 0.5 <= ratio < 0.75:
+            tips.append(low_tip)
+            return 40, tips
+        elif 1.3 < ratio <= upper_hard:
+            tips.append(high_tip)
+            return 40, tips
+        elif ratio < 0.5:
+            tips.append(f"⚠️ Критически мало {label}")
+            return 0, tips
+        else:
+            tips.append(f"⚠️ Опасный избыток {label}")
+            return 0, tips
+
+    def compute_quality(
+        self,
+        totals: dict,
+        daily_target: dict,
+        pet_species: str,
+        breed_risks: list[str],
+        age_months: int,
+        weight_kg: float,
+    ) -> tuple[int, str, list[str]]:
+        """Returns (score 0-100, quality 'good'|'ok'|'poor', tips list).
+        Uses NRC 2006 norms from MICRO_PER_1000KCAL and MICRO_MAX_PER_1000KCAL."""
+        tips: list[str] = []
+        factors: list[tuple[int, int]] = []  # (score, weight)
+
+        # 1. Calories (35%)
+        target_kcal = daily_target.get("kcal", 0)
+        actual_kcal = totals.get("kcal", 0)
+        if target_kcal > 0:
+            s, t = self._score_ratio(
+                actual_kcal / target_kcal, "калорий",
+                low_tip=f"Недоел {target_kcal - actual_kcal:.0f} ккал",
+                high_tip=f"Перекормил на {actual_kcal - target_kcal:.0f} ккал — риск ожирения",
+                upper_hard=1 + MER_MAX_OVERAGE,
+            )
+            factors.append((s, 35)); tips.extend(t)
+
+        # 2. Protein (25%)
+        target_prot = daily_target.get("protein_g", 0)
+        actual_prot = totals.get("protein_g", 0)
+        if target_prot > 0:
+            s, t = self._score_ratio(
+                actual_prot / target_prot, "белка",
+                low_tip="Мало белка — добавь мясо или рыбу",
+                high_tip="Много белка — нагрузка на почки при длительном перекорме",
+                upper_hard=2.5,
+            )
+            factors.append((s, 25)); tips.extend(t)
+
+        # 3. Fat (20%)
+        target_fat = daily_target.get("fat_g", 0)
+        actual_fat = totals.get("fat_g", 0)
+        if target_fat > 0:
+            s, t = self._score_ratio(
+                actual_fat / target_fat, "жиров",
+                low_tip="Мало жиров — важно для усвоения витаминов",
+                high_tip="Много жиров — риск ожирения и панкреатита",
+                upper_hard=2.0,
+            )
+            factors.append((s, 20)); tips.extend(t)
+
+        # 4. Required micros (remaining 20% split equally)
+        required_micros = self.get_required_micros(pet_species, breed_risks)
+        micro_keys = [m for m in required_micros if m in daily_target and daily_target[m] > 0]
+        micro_w = 20 // len(micro_keys) if micro_keys else 0
+        MICRO_LABELS = {
+            "calcium_mg": "кальция", "phosphorus_mg": "фосфора",
+            "taurine_mg": "таурина", "omega3_mg": "омега-3",
+        }
+        for micro in micro_keys:
+            tval = daily_target[micro]
+            aval = totals.get(micro, 0)
+            mtl = MICRO_MAX_PER_1000KCAL.get(pet_species, {}).get(micro, 0)
+            upper = (mtl * target_kcal / 1000 / tval) if mtl > 0 and tval > 0 and target_kcal > 0 else 3.0
+            lbl = MICRO_LABELS.get(micro, micro)
+            s, t = self._score_ratio(
+                aval / tval, lbl,
+                low_tip=f"Мало {lbl}",
+                high_tip=f"Много {lbl} — превышение NRC MTL",
+                upper_hard=upper,
+            )
+            factors.append((s, micro_w)); tips.extend(t)
+
+        # Add NRC upper-limit warnings
+        tips.extend(self.get_excess_warnings(
+            totals=totals, target_kcal=target_kcal,
+            species=pet_species, age_months=age_months, weight_kg=weight_kg,
+        ))
+
+        if not factors:
+            return 0, "poor", ["Нет данных для оценки"]
+
+        total_w = sum(w for _, w in factors)
+        score = round(sum(s * w for s, w in factors) / total_w) if total_w > 0 else 0
+        quality = "good" if score >= 80 else "ok" if score >= 50 else "poor"
+
+        if not tips:
+            tips = ["Рацион сбалансирован 👍"]
+
+        return score, quality, tips
+
     # ── Private helpers ─────────────────────────────────────────────
 
     def _sum_items(self, items: list[dict]) -> dict:
