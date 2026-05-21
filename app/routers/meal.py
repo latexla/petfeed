@@ -13,6 +13,8 @@ from app.repositories.meal_repo import MealRepository
 from app.services.user_service import UserService
 from app.services.pet_service import PetService
 from app.services.meal_service import MealService
+from app.schemas.recommend import RecommendRequest, RecommendResponse, DailyAddNamedRequest
+from app.services.recommend_service import RecommendService
 
 logger = logging.getLogger(__name__)
 
@@ -501,3 +503,123 @@ async def get_meal_history(
         }
         for h in history
     ]
+
+
+@router.post("/recommend", response_model=RecommendResponse)
+async def recommend_meal(
+    body: RecommendRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    telegram_id = request.state.telegram_id
+    user = await UserService(UserRepository(db)).get_or_create(telegram_id=telegram_id)
+    pet = await PetService(PetRepository(db)).get_by_id(
+        pet_id=body.pet_id, owner_id=user.id
+    )
+    if pet is None:
+        raise HTTPException(status_code=404, detail={"error": "not_found"})
+
+    ration = await NutritionRepository(db).get_ration_by_pet(body.pet_id)
+    if ration is None:
+        raise HTTPException(status_code=400, detail={"error": "no_ration"})
+
+    repo = MealRepository(db)
+    meal_svc = MealService(repo)
+    nutrition_repo = NutritionRepository(db)
+    svc = RecommendService(meal_svc, nutrition_repo)
+
+    if body.mode == "natural":
+        if not body.ingredients:
+            raise HTTPException(status_code=400, detail={"error": "ingredients_required"})
+        return await svc.recommend_natural(pet=pet, ration=ration, ingredients=body.ingredients)
+
+    if not body.product_name.strip():
+        raise HTTPException(status_code=400, detail={"error": "product_name_required"})
+    return await svc.recommend_commercial(pet=pet, ration=ration, product_name=body.product_name)
+
+
+@router.post("/daily/add-named")
+async def daily_add_named(
+    body: DailyAddNamedRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Add product to daily log by nutrient data (no food_item_id — for DeepSeek products)."""
+    if body.grams <= 0:
+        raise HTTPException(status_code=400, detail={"error": "invalid_grams"})
+
+    telegram_id = request.state.telegram_id
+    today = str(_date.today())
+
+    user = await UserService(UserRepository(db)).get_or_create(telegram_id=telegram_id)
+    pet = await PetService(PetRepository(db)).get_by_id(pet_id=body.pet_id, owner_id=user.id)
+    if pet is None:
+        raise HTTPException(status_code=404, detail={"error": "not_found"})
+
+    ration = await NutritionRepository(db).get_ration_by_pet(body.pet_id)
+    if ration is None:
+        raise HTTPException(status_code=400, detail={"error": "no_ration"})
+
+    repo = MealRepository(db)
+    svc = MealService(repo)
+    breed_risks = await NutritionRepository(db).get_breed_risks(pet.breed or "")
+
+    session = await repo.get_daily_session(telegram_id, body.pet_id)
+    if session and session.get("date") != today:
+        await _save_daily_session(session, pet, ration, db)
+        session = None
+
+    if session is None:
+        required_micros = svc.get_required_micros(pet.species, breed_risks)
+        micro_targets = svc.compute_micro_targets(
+            mer=float(ration.daily_calories), meals_per_day=1,
+            species=pet.species, required_micros=required_micros,
+        )
+        daily_grams_est = float(ration.daily_calories) / 350 * 100
+        pct_prot = 0.225 if pet.age_months < 12 else 0.18
+        fat_pct_kcal = 0.25 if pet.age_months < 12 else 0.20
+        session = {
+            "date": today,
+            "items": [],
+            "daily_target": {
+                "kcal": float(ration.daily_calories),
+                "protein_g": round(daily_grams_est * pct_prot, 1),
+                "fat_g": round(float(ration.daily_calories) * fat_pct_kcal / 9, 1),
+                **micro_targets,
+            },
+        }
+
+    factor = body.grams / 100
+    item = {
+        "food_item_id": None,
+        "name": body.name,
+        "grams": round(body.grams, 1),
+        "kcal": round(body.kcal_per_100g * factor, 1),
+        "protein_g": round(body.protein_g * factor, 1),
+        "fat_g": round(body.fat_g * factor, 1),
+        "carb_g": round(body.carb_g * factor, 1),
+        "calcium_mg": round(body.calcium_mg * factor, 1),
+        "phosphorus_mg": round(body.phosphorus_mg * factor, 1),
+        "omega3_mg": round(body.omega3_mg * factor, 1),
+        "taurine_mg": round(body.taurine_mg * factor, 1),
+    }
+    session["items"].append(item)
+    await repo.save_daily_session(telegram_id, body.pet_id, session)
+
+    totals = svc._sum_items(session["items"])
+    score, quality, tips = svc.compute_quality(
+        totals=totals, daily_target=session["daily_target"],
+        pet_species=pet.species, breed_risks=breed_risks,
+        age_months=pet.age_months, weight_kg=float(pet.weight_kg),
+    )
+
+    return {
+        "status": "added",
+        "item": item,
+        "items": session["items"],
+        "totals": totals,
+        "daily_target": session["daily_target"],
+        "quality_score": score,
+        "quality_label": quality,
+        "tips": tips,
+    }
