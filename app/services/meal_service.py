@@ -105,6 +105,7 @@ class FoodLookupResult:
     source: str
     confidence: float = 1.0
     low_confidence: bool = False
+    food_item_id: int | None = None
 
 
 class MealService:
@@ -192,6 +193,7 @@ class MealService:
                 omega3_mg=float(fi.omega3_mg or 0),
                 taurine_mg=float(fi.taurine_mg or 0),
                 source="db",
+                food_item_id=fi.id,
             )
         return await self._deepseek_lookup(product_name)
 
