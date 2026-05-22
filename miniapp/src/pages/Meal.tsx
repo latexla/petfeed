@@ -3,14 +3,30 @@ import { useNavigate } from 'react-router-dom';
 import { FoodSearchResult } from '../api/meal';
 import { QualityBadge } from '../components/QualityBadge';
 import { ProgressBar } from '../components/ProgressBar';
+import { RecommendBar } from '../components/RecommendBar';
 import { usePet } from '../contexts/PetContext';
 import { useMealSession } from '../hooks/useMealSession';
+import { useRecommend } from '../hooks/useRecommend';
 import { c } from '../theme';
 
 export function Meal() {
   const { activePet } = usePet();
-  const { summary, history, searchResults, loading, searching, adding, search, add, undo, reset } =
+  const { summary, history, searchResults, loading, searching, adding, search, add, undo, reset, loadSummary } =
     useMealSession(activePet?.id ?? null, activePet?.species ?? null);
+
+  const {
+    mode, setMode,
+    selected: selectedIngredient, toggleIngredient,
+    recentIngredients,
+    productName, setProductName,
+    result: recommendResult,
+    loading: recommending,
+    applying,
+    error: recommendError,
+    recommend,
+    apply,
+    cancel,
+  } = useRecommend(activePet?.id ?? null, loadSummary);
 
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<FoodSearchResult | null>(null);
@@ -92,6 +108,26 @@ export function Meal() {
             </div>
           )}
         </div>
+
+        {/* Recommendation */}
+        <RecommendBar
+          mode={mode}
+          setMode={setMode}
+          selected={selectedIngredient}
+          toggleIngredient={toggleIngredient}
+          recentIngredients={recentIngredients}
+          productName={productName}
+          setProductName={setProductName}
+          result={recommendResult}
+          loading={recommending}
+          applying={applying}
+          error={recommendError}
+          recommend={recommend}
+          apply={apply}
+          onCancel={cancel}
+          onSearchIngredient={search}
+          searchResults={searchResults}
+        />
 
         {/* Search */}
         <div style={{ marginBottom: 16 }}>

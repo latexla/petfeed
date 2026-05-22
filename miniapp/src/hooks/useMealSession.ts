@@ -74,5 +74,5 @@ export function useMealSession(petId: number | null, species: string | null) {
     await Promise.all([loadSummary(), loadHistory()]);
   };
 
-  return { summary, history, searchResults, loading, searching, adding, search, add, undo, reset };
+  return { summary, history, searchResults, loading, searching, adding, search, add, undo, reset, loadSummary };
 }
