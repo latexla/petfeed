@@ -16,7 +16,7 @@ class RecommendService:
         self, pet: Pet, ration: Ration, ingredients: list[str],
     ) -> RecommendResponse:
         breed_risks = await self.nutrition_repo.get_breed_risks(pet.breed or "")
-        stop_foods = await self.nutrition_repo.get_stop_foods(pet.species, level=1)
+        stop_foods = await self.meal_svc.repo.get_stop_foods_for_species(pet.species)
         daily_calories = float(ration.daily_calories)
 
         lookups = {}

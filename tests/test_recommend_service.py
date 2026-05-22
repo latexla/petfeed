@@ -48,6 +48,9 @@ def _make_meal_svc(lookups: dict):
     })
     svc.get_summary_tip = MagicMock(return_value="")
     svc.get_excess_warnings = MagicMock(return_value=[])
+    # repo.get_stop_foods_for_species используется в recommend_natural
+    svc.repo = MagicMock()
+    svc.repo.get_stop_foods_for_species = AsyncMock(return_value=[])
     return svc
 
 
