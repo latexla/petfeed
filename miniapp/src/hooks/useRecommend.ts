@@ -34,6 +34,7 @@ export function useRecommend(petId: number | null, onApplied: () => void) {
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recentIngredients, setRecentIngredients] = useState<string[]>(loadRecentIngredients);
 
   const setMode = useCallback((m: 'natural' | 'commercial') => {
     setModeState(m);
@@ -82,9 +83,9 @@ export function useRecommend(petId: number | null, onApplied: () => void) {
         }
       }
       if (mode === 'natural' && selected.length > 0) {
-        const current = loadRecentIngredients();
-        const updated = Array.from(new Set([...selected, ...current]));
+        const updated = Array.from(new Set([...selected, ...recentIngredients]));
         saveRecentIngredients(updated);
+        setRecentIngredients(updated.slice(0, MAX_RECENT));
       }
       setResult(null);
       setSelected([]);
@@ -95,11 +96,9 @@ export function useRecommend(petId: number | null, onApplied: () => void) {
     } finally {
       setApplying(false);
     }
-  }, [petId, result, applying, mode, selected, onApplied]);
+  }, [petId, result, applying, mode, selected, recentIngredients, onApplied]);
 
   const cancel = useCallback(() => setResult(null), []);
-
-  const recentIngredients = loadRecentIngredients();
 
   return {
     mode, setMode,
