@@ -1,6 +1,7 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 import pytest
 from aiogram.types import BotCommand
+from bot.main import BOT_COMMANDS
 
 
 @pytest.mark.asyncio
@@ -8,11 +9,7 @@ async def test_set_my_commands_registers_start_and_help():
     mock_bot = AsyncMock()
     mock_bot.set_my_commands = AsyncMock()
 
-    commands = [
-        BotCommand(command="start", description="Создать профиль питомца или вернуться в меню"),
-        BotCommand(command="help",  description="Что умеет бот и как им пользоваться"),
-    ]
-    await mock_bot.set_my_commands(commands)
+    await mock_bot.set_my_commands(BOT_COMMANDS)
 
     mock_bot.set_my_commands.assert_called_once()
     call_args = mock_bot.set_my_commands.call_args[0][0]

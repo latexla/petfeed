@@ -13,6 +13,11 @@ from bot.handlers import ai_handler, feedback, meal_builder, nutrition, pet_crea
 
 setup_observability("bot")
 
+BOT_COMMANDS = [
+    BotCommand(command="start", description="Создать профиль питомца или вернуться в меню"),
+    BotCommand(command="help",  description="Что умеет бот и как им пользоваться"),
+]
+
 
 async def main():
     bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
@@ -27,10 +32,7 @@ async def main():
     dp.include_router(meal_builder.router)
     dp.include_router(feedback.router)
     start_scheduler(bot)
-    await bot.set_my_commands([
-        BotCommand(command="start", description="Создать профиль питомца или вернуться в меню"),
-        BotCommand(command="help",  description="Что умеет бот и как им пользоваться"),
-    ])
+    await bot.set_my_commands(BOT_COMMANDS)
     await dp.start_polling(bot, drop_pending_updates=True)
 
 
