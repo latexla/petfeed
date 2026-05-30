@@ -1,14 +1,17 @@
 import asyncio
-import logging
 import os
 import signal
+
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.redis import RedisStorage
-from app.config import settings
-from app.scheduler import start_scheduler
-from bot.handlers import start, pet_creation, nutrition, reminders, ai_handler, weight, meal_builder, feedback
+from aiogram.types import BotCommand
 
-logging.basicConfig(level=logging.INFO)
+from app.config import settings
+from app.observability import setup_observability
+from app.scheduler import start_scheduler
+from bot.handlers import ai_handler, feedback, meal_builder, nutrition, pet_creation, reminders, start, weight
+
+setup_observability("bot")
 
 
 async def main():
@@ -24,6 +27,10 @@ async def main():
     dp.include_router(meal_builder.router)
     dp.include_router(feedback.router)
     start_scheduler(bot)
+    await bot.set_my_commands([
+        BotCommand(command="start", description="Создать профиль питомца или вернуться в меню"),
+        BotCommand(command="help",  description="Что умеет бот и как им пользоваться"),
+    ])
     await dp.start_polling(bot, drop_pending_updates=True)
 
 
