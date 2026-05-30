@@ -1,14 +1,18 @@
 import httpx
-from aiogram import Router, F
-from aiogram.filters import CommandStart
-from aiogram.types import Message, CallbackQuery
+from aiogram import F, Router
+from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from bot.states import PetCreation
-from bot.keyboards import (
-    species_keyboard, main_menu_keyboard, pets_keyboard,
-    pet_profile_keyboard, onboarding_keyboard,
-)
+from aiogram.types import CallbackQuery, Message
+
 from app.config import settings
+from bot.keyboards import (
+    main_menu_keyboard,
+    onboarding_keyboard,
+    pet_profile_keyboard,
+    pets_keyboard,
+    species_keyboard,
+)
+from bot.states import PetCreation
 
 ONBOARDING_SCREENS = [
     None,  # index 0 unused — screens are 1-indexed
@@ -203,3 +207,20 @@ async def add_pet(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await state.set_state(PetCreation.waiting_species)
     await callback.message.edit_text("Шаг 1 из 5\nКто твой питомец?", reply_markup=species_keyboard())
+
+
+@router.message(Command("help"))
+async def cmd_help(message: Message):
+    await message.answer(
+        "🐾 <b>PetFeed</b> — умный помощник для питания питомца\n\n"
+        "<b>Что умею:</b>\n"
+        "• 🍽 Рассчитать суточный рацион по весу, возрасту и породе\n"
+        "• ⏰ Напоминать о кормлении в нужное время\n"
+        "• 📋 Вести дневник кормлений\n"
+        "• ⚖️ Следить за изменением веса\n"
+        "• 🤖 Отвечать на вопросы о питании (AI, 10 запросов/день)\n\n"
+        "<b>Как начать:</b>\n"
+        "/start — создать профиль питомца или вернуться в меню\n\n"
+        "<i>Мини-приложение с удобным интерфейсом доступно через кнопку в меню.</i>",
+        parse_mode="HTML",
+    )
