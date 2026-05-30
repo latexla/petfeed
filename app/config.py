@@ -12,7 +12,7 @@ INSECURE_DEFAULTS: dict[str, set[str]] = {
 
 
 class Settings(BaseSettings):
-    ENV: Literal["development", "production"] = "development"
+    APP_ENV: Literal["development", "production"] = "development"
 
     DATABASE_URL: str
 
@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _enforce_production_secrets(self):
-        if self.ENV != "production":
+        if self.APP_ENV != "production":
             return self
         problems: list[str] = []
         for field, bad_values in INSECURE_DEFAULTS.items():

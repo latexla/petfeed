@@ -1,35 +1,39 @@
 import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.config import settings
 from app.middleware.auth import telegram_auth_middleware
-from app.routers import users, pets, nutrition, reminders, ai, weight, breeds, meal, feedback, auth
-from app.routers import admin
+from app.observability import setup_observability
+from app.routers import admin, ai, auth, breeds, feedback, meal, nutrition, pets, reminders, users, weight
 
+setup_observability("api")
 _log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from app.database import engine, Base
     import app.models  # noqa: F401
-    if settings.JWT_SECRET == "change-me-in-production":
-        _log.warning("JWT_SECRET is set to the default value — set a strong secret in production!")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
     yield
 
 
 app = FastAPI(title="PetFeed API", version="1.0.0", lifespan=lifespan)
 
 app.middleware("http")(telegram_auth_middleware)
+
 _origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
-_credentials = bool(_origins)
+if not _origins:
+    if settings.APP_ENV == "production":
+        raise RuntimeError("ALLOWED_ORIGINS must be set in production")
+    _log.warning("ALLOWED_ORIGINS is empty — falling back to '*' (development only)")
+    _origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_origins or ["*"],
-    allow_credentials=_credentials,
+    allow_origins=_origins,
+    allow_credentials=_origins != ["*"],
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Telegram-Id", "X-Api-Key", "X-Admin-Token"],
 )
