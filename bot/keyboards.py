@@ -94,11 +94,6 @@ def main_menu_keyboard(pet_name: str = "") -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="Профиль питомца", callback_data="menu:pet")],
         [InlineKeyboardButton(text="💬 Обратная связь", callback_data="menu:feedback")],
     ]
-    if settings.MINIAPP_URL:
-        rows.append([InlineKeyboardButton(
-            text="🌐 Открыть приложение",
-            web_app=WebAppInfo(url=settings.MINIAPP_URL),
-        )])
     rows.append([InlineKeyboardButton(text="+ Добавить питомца", callback_data="add_pet")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
