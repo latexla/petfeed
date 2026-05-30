@@ -1,4 +1,5 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
+
 from app.config import settings
 
 
@@ -237,3 +238,13 @@ def feedback_comment_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Пропустить →", callback_data="fb_skip_comment")],
     ])
+
+
+def miniapp_keyboard() -> ReplyKeyboardMarkup | None:
+    if not settings.MINIAPP_URL:
+        return None
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="🌐 Открыть приложение", web_app=WebAppInfo(url=settings.MINIAPP_URL))]],
+        resize_keyboard=True,
+        is_persistent=True,
+    )
