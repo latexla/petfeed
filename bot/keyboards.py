@@ -241,6 +241,7 @@ def feedback_comment_keyboard() -> InlineKeyboardMarkup:
 
 
 def miniapp_keyboard() -> ReplyKeyboardMarkup | None:
+    """Returns None when MINIAPP_URL is not configured."""
     if not settings.MINIAPP_URL:
         return None
     return ReplyKeyboardMarkup(

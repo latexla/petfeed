@@ -1,6 +1,10 @@
 from unittest.mock import AsyncMock
+
 import pytest
-from aiogram.types import BotCommand
+from aiogram.types import BotCommand, ReplyKeyboardMarkup
+
+from app.config import settings
+from bot.keyboards import miniapp_keyboard
 from bot.main import BOT_COMMANDS
 
 
@@ -16,11 +20,6 @@ async def test_set_my_commands_registers_start_and_help():
     assert len(call_args) == 2
     assert call_args[0].command == "start"
     assert call_args[1].command == "help"
-
-
-from aiogram.types import ReplyKeyboardMarkup
-from app.config import settings
-from bot.keyboards import miniapp_keyboard
 
 
 def test_miniapp_keyboard_returns_persistent_webapp_button(monkeypatch):
