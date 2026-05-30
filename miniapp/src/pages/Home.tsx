@@ -34,7 +34,13 @@ export function Home() {
 
   return (
     <div style={{ padding: 16, paddingBottom: 80 }}>
-      <PetCard pet={activePet} />
+      <div
+        onClick={() => navigate('/profile')}
+        style={{ cursor: 'pointer' }}
+      >
+        <PetCard pet={activePet} />
+      </div>
+
       {rationLoading
         ? <div style={{ color: c.hint, fontSize: 14 }}>Загружаю рацион...</div>
         : ration && <NutritionCard ration={ration} />

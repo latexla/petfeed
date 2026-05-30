@@ -4,8 +4,8 @@ import { c } from '../theme';
 const TABS = [
   { path: '/', label: 'Главная', icon: '🏠' },
   { path: '/nutrition', label: 'Рацион', icon: '🍽' },
+  { path: '/meal', label: 'Кормление', icon: '📋' },
   { path: '/reminders', label: 'Напоминания', icon: '⏰' },
-  { path: '/profile', label: 'Профиль', icon: '👤' },
 ];
 
 export function TabBar() {
