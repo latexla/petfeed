@@ -7,6 +7,7 @@ from aiogram.types import CallbackQuery, Message
 from app.config import settings
 from bot.keyboards import (
     main_menu_keyboard,
+    miniapp_keyboard,
     onboarding_keyboard,
     pet_profile_keyboard,
     pets_keyboard,
@@ -66,26 +67,24 @@ async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
     telegram_id = message.from_user.id
     pets = await get_user_pets(telegram_id)
+    persistent_kb = miniapp_keyboard()
 
     if not pets:
-        # New user — show onboarding screen 1
         await message.answer(
             ONBOARDING_SCREENS[1],
             parse_mode="HTML",
             reply_markup=onboarding_keyboard(step=1),
         )
+        if persistent_kb:
+            await message.answer("👆 Или сразу открой приложение:", reply_markup=persistent_kb)
         return
 
     pet = pets[0]
     await state.update_data(active_pet_id=pet["id"], active_pet_name=pet["name"])
 
     if len(pets) == 1:
-        miniapp_note = (
-            f'\n\n🌐 Или открой <a href="{settings.MINIAPP_URL}">удобный интерфейс</a>'
-            if settings.MINIAPP_URL else ""
-        )
         await message.answer(
-            f"С возвращением!\n\nВыбери действие:{miniapp_note}",
+            "С возвращением!\n\nВыбери действие:",
             parse_mode="HTML",
             reply_markup=main_menu_keyboard(pet["name"]),
         )
@@ -94,6 +93,9 @@ async def cmd_start(message: Message, state: FSMContext):
             "С возвращением! Выбери питомца:",
             reply_markup=pets_keyboard(pets, action="main"),
         )
+
+    if persistent_kb:
+        await message.answer("👆 Быстрый доступ:", reply_markup=persistent_kb)
 
 
 @router.callback_query(F.data.startswith("onboard:"))
