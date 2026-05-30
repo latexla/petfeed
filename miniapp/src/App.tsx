@@ -7,6 +7,7 @@ import { AI } from './pages/AI';
 import { Home } from './pages/Home';
 import { Meal } from './pages/Meal';
 import { Nutrition } from './pages/Nutrition';
+import { Privacy } from './pages/Privacy';
 import { Profile } from './pages/Profile';
 import { Reminders } from './pages/Reminders';
 import { Weight } from './pages/Weight';
@@ -50,9 +51,14 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      <Routes>
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="*" element={
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        } />
+      </Routes>
     </BrowserRouter>
   );
 }

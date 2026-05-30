@@ -77,6 +77,15 @@ export function Profile() {
       >
         💬 Оставить отзыв
       </a>
+
+      <div style={{ marginTop: 24, textAlign: 'center' }}>
+        <a
+          href="/privacy"
+          style={{ fontSize: 12, color: c.hint, textDecoration: 'underline' }}
+        >
+          Политика конфиденциальности
+        </a>
+      </div>
     </div>
   );
 }
