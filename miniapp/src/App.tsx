@@ -19,7 +19,7 @@ function AppRoutes() {
     return (
       <div style={{ padding: 24, textAlign: 'center', marginTop: 60 }}>
         <div style={{ fontSize: 40, marginBottom: 12 }}>🐾</div>
-        <p style={{ color: c.hint }}>{error}</p>
+        <p style={{ color: c.hint, whiteSpace: 'pre-wrap' }}>{error}</p>
       </div>
     );
   }

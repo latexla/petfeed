@@ -14,7 +14,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!tg?.initData) {
-      setState({ isReady: false, error: 'Открой через Telegram' });
+      const diag = [
+        `Telegram obj: ${window.Telegram ? 'yes' : 'NO'}`,
+        `WebApp obj: ${window.Telegram?.WebApp ? 'yes' : 'NO'}`,
+        `initData len: ${window.Telegram?.WebApp?.initData?.length ?? 'n/a'}`,
+      ].join(' | ');
+      setState({ isReady: false, error: `Открой через Telegram\n\n[debug] ${diag}` });
       return;
     }
     tg.ready();
