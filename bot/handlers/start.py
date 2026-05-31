@@ -76,7 +76,7 @@ async def cmd_start(message: Message, state: FSMContext):
             reply_markup=onboarding_keyboard(step=1),
         )
         if persistent_kb:
-            await message.answer("👆 Или сразу открой приложение:", reply_markup=persistent_kb)
+            await message.answer("Или сразу открой приложение:", reply_markup=persistent_kb)
         return
 
     pet = pets[0]
@@ -95,7 +95,7 @@ async def cmd_start(message: Message, state: FSMContext):
         )
 
     if persistent_kb:
-        await message.answer("👆 Быстрый доступ:", reply_markup=persistent_kb)
+        await message.answer("Быстрый доступ к приложению:", reply_markup=persistent_kb)
 
 
 @router.callback_query(F.data.startswith("onboard:"))
@@ -226,4 +226,4 @@ async def cmd_help(message: Message):
         parse_mode="HTML",
     )
     if kb := miniapp_keyboard():
-        await message.answer("👆 Быстрый доступ:", reply_markup=kb)
+        await message.answer("Быстрый доступ к приложению:", reply_markup=kb)

@@ -1,4 +1,4 @@
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from app.config import settings
 
@@ -235,12 +235,15 @@ def feedback_comment_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
-def miniapp_keyboard() -> ReplyKeyboardMarkup | None:
-    """Returns None when MINIAPP_URL is not configured."""
-    if not settings.MINIAPP_URL:
+def miniapp_keyboard() -> InlineKeyboardMarkup | None:
+    """Inline button opening the registered Direct Link Mini App.
+
+    A raw web_app button to MINIAPP_URL does not receive Telegram initData;
+    the Mini App opened via its t.me deep link does. Returns None when the
+    link is not configured.
+    """
+    if not settings.MINIAPP_TME_URL:
         return None
-    return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="🌐 Открыть приложение", web_app=WebAppInfo(url=settings.MINIAPP_URL))]],
-        resize_keyboard=True,
-        is_persistent=True,
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="🌐 Открыть приложение", url=settings.MINIAPP_TME_URL)]],
     )

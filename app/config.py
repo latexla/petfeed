@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     AI_DAILY_LIMIT: int = 10
 
     MINIAPP_URL: str = ""
+    MINIAPP_TME_URL: str = ""  # Direct Link Mini App, e.g. https://t.me/PawDietBot/paw
     JWT_SECRET: str = "change-me-in-production"
     JWT_ALGORITHM: str = "HS256"
     ALLOWED_ORIGINS: str = ""
