@@ -46,8 +46,6 @@ class Settings(BaseSettings):
                 problems.append(f"{field} is unset or uses an insecure default value")
         if len(self.JWT_SECRET) < 32:
             problems.append("JWT_SECRET must be at least 32 characters in production")
-        if not self.ALLOWED_ORIGINS.strip():
-            problems.append("ALLOWED_ORIGINS must be a non-empty comma-separated list in production")
         if problems:
             joined = "\n  - ".join(problems)
             raise RuntimeError(
