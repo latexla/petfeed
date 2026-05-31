@@ -4,7 +4,8 @@ from sqlalchemy.orm import DeclarativeBase
 from app.config import settings
 
 db_url = settings.async_database_url
-_connect_args = {"ssl": True} if settings.APP_ENV == "production" else {}
+_is_external = settings.APP_ENV == "production" and "railway.internal" not in settings.DATABASE_URL
+_connect_args = {"ssl": True} if _is_external else {}
 engine = create_async_engine(db_url, echo=False, connect_args=_connect_args)
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
