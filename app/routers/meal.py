@@ -530,6 +530,10 @@ async def recommend_meal(
 
     repo = MealRepository(db)
     meal_svc = MealService(repo)
+    from app.services.feature_flag_service import is_enabled
+    from app.repositories.commercial_food_repo import CommercialFoodRepository
+    if await is_enabled("feature_food_catalog", db):
+        meal_svc._commercial_repo = CommercialFoodRepository(db)
     nutrition_repo = NutritionRepository(db)
     svc = RecommendService(meal_svc, nutrition_repo)
 
