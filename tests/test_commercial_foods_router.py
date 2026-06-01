@@ -39,3 +39,20 @@ async def test_filter_by_food_type(db_session):
     dry = await repo.filter(species="cat", food_type="dry")
     assert len(dry) == 1
     assert dry[0].food_type == "dry"
+
+
+from app.services.commercial_food_service import CommercialFoodService
+
+
+@pytest.mark.asyncio
+async def test_service_filter_returns_only_species(db_session):
+    await _add(db_session, species="cat")
+    await _add(db_session, brand="Pro Plan", name="Dog Adult", species="dog",
+               name_aliases=json.dumps([]), condition_tags=json.dumps([]))
+    repo = CommercialFoodRepository(db_session)
+    svc = CommercialFoodService(repo)
+    rows = await repo.filter(species="cat")
+    ranked = svc.rank(rows, {"species": "cat", "life_stage": "adult",
+                             "food_type": None, "breed_size": None, "tags": []})
+    assert all(cf.species == "cat" for cf in ranked)
+    assert len(ranked) == 1
