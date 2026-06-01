@@ -9,6 +9,8 @@ from bot.states import FoodPicker
 
 router = Router()
 
+DISABLED_MSG = "🔎 Подбор корма сейчас недоступен. Загляни позже!"
+
 
 async def _fetch_pet(telegram_id: int, pet_id: int) -> dict | None:
     async with httpx.AsyncClient() as client:
@@ -19,13 +21,15 @@ async def _fetch_pet(telegram_id: int, pet_id: int) -> dict | None:
     return resp.json() if resp.status_code == 200 else None
 
 
-async def _fetch_foods(telegram_id: int, params: dict) -> list[dict]:
+async def _fetch_foods(telegram_id: int, params: dict) -> list[dict] | None:
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             f"{settings.BACKEND_URL}/v1/commercial-foods",
             params=params,
             headers={"X-Telegram-Id": str(telegram_id)},
         )
+    if resp.status_code == 403:
+        return None  # feature_food_catalog disabled
     return resp.json() if resp.status_code == 200 else []
 
 
@@ -39,6 +43,11 @@ async def open_picker(callback: CallbackQuery, state: FSMContext):
     pet = await _fetch_pet(callback.from_user.id, int(pet_id))
     if pet is None:
         await callback.answer("Не удалось загрузить питомца", show_alert=True)
+        return
+    probe = await _fetch_foods(callback.from_user.id, {"species": pet.get("species", "cat"), "limit": 1})
+    if probe is None:
+        await callback.answer(DISABLED_MSG, show_alert=True)
+        await state.set_state(None)
         return
     await state.update_data(fp_pet_id=int(pet_id), fp_species=pet.get("species", "cat"))
     await state.set_state(FoodPicker.browsing)
@@ -71,6 +80,10 @@ async def _show_list(callback, state, pet_id: int, food_type: str, offset: int):
     if food_type != "all":
         params["food_type"] = food_type
     items = await _fetch_foods(callback.from_user.id, params)
+    if items is None:
+        await callback.message.edit_text(DISABLED_MSG)
+        await state.set_state(None)
+        return
     if not items:
         await callback.message.edit_text(
             "Ничего не нашлось 😿",
@@ -89,6 +102,10 @@ async def show_card(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     species = data.get("fp_species", "cat")
     items = await _fetch_foods(callback.from_user.id, {"species": species, "limit": 100})
+    if items is None:
+        await callback.message.edit_text(DISABLED_MSG)
+        await state.set_state(None)
+        return
     cf = next((i for i in items if i["id"] == int(food_id)), None)
     if cf is None:
         await callback.answer("Корм не найден", show_alert=True)
