@@ -9,7 +9,7 @@ from aiogram.types import BotCommand, MenuButtonCommands, MenuButtonWebApp, WebA
 from app.config import settings
 from app.observability import setup_observability
 from app.scheduler import start_scheduler
-from bot.handlers import ai_handler, feedback, meal_builder, nutrition, pet_creation, reminders, start, weight
+from bot.handlers import ai_handler, feedback, food_picker, meal_builder, nutrition, pet_creation, reminders, start, weight
 
 setup_observability("bot")
 
@@ -30,6 +30,7 @@ async def main():
     dp.include_router(ai_handler.router)
     dp.include_router(weight.router)
     dp.include_router(meal_builder.router)
+    dp.include_router(food_picker.router)
     dp.include_router(feedback.router)
     start_scheduler(bot)
     await bot.set_my_commands(BOT_COMMANDS)
