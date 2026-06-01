@@ -1,13 +1,14 @@
 import hashlib
-import json
 import logging
 from datetime import date
+
 from openai import AsyncOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.config import settings
-from app.models.user import User
-from app.models.pet import Pet
 from app.models.ai_request import AiRequest
+from app.models.pet import Pet
+from app.models.user import User
 from app.redis_client import get_redis
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,18 @@ SYSTEM_PROMPT = (
     "Давай конкретные, безопасные советы. Если вопрос требует ветеринара — скажи об этом. "
     "Отвечай на русском языке, кратко и по делу (не более 200 слов)."
 )
+
+
+def build_food_context(foods: list) -> str:
+    """Compact list of candidate commercial foods for the AI prompt."""
+    if not foods:
+        return ""
+    lines = [
+        f"- {cf.brand} {cf.name} ({cf.food_type}, {cf.life_stage}): "
+        f"{float(cf.kcal_per_100g):.0f} ккал/100г"
+        for cf in foods[:5]
+    ]
+    return "Подходящие корма из базы:\n" + "\n".join(lines) + "\n"
 
 
 class AiService:
@@ -45,7 +58,8 @@ class AiService:
         remaining = settings.AI_DAILY_LIMIT - used
         return remaining > 0, remaining
 
-    async def ask(self, user: User, pet: Pet | None, question: str) -> tuple[str, bool]:
+    async def ask(self, user: User, pet: Pet | None, question: str,
+                  foods: list | None = None) -> tuple[str, bool]:
         """Returns (answer, cache_hit)"""
         species = pet.species if pet else "unknown"
         redis = get_redis()
@@ -67,6 +81,7 @@ class AiService:
                 f"Питомец: {pet.name}, вид: {pet.species}, "
                 f"возраст: {pet.age_months} мес, вес: {pet.weight_kg} кг. "
             )
+        context += build_food_context(foods or [])
 
         try:
             response = await self.client.chat.completions.create(
