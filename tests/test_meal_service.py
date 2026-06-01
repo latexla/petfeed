@@ -1,9 +1,11 @@
 import json
-import pytest
 from unittest.mock import AsyncMock, MagicMock
-from app.services.meal_service import MealService, RANGE_GUARD
+
+import pytest
+
 from app.models.food_item import FoodItem
 from app.models.stop_food import StopFood
+from app.services.meal_service import RANGE_GUARD, MealService
 
 
 def make_service() -> MealService:
@@ -366,3 +368,29 @@ class TestIsDone:
                   "calcium_mg": 0, "phosphorus_mg": 0, "omega3_mg": 0, "taurine_mg": 0}]
         target = {"kcal": 250, "protein_g": 30, "fat_g": 8}
         assert svc.is_done(items, target) is False
+
+
+@pytest.mark.asyncio
+async def test_lookup_product_finds_commercial_before_deepseek():
+    from app.models.commercial_food import CommercialFood
+    repo = AsyncMock()
+    repo.get_all_food_items.return_value = []  # not in food_items
+
+    cf = CommercialFood()
+    cf.id = 7; cf.brand = "Royal Canin"; cf.name = "Sterilised 37"
+    cf.name_aliases = json.dumps(["sterilised"]); cf.species = "cat"
+    cf.food_type = "dry"; cf.kcal_per_100g = 350; cf.protein_g = 37
+    cf.fat_g = 12; cf.carb_g = 31; cf.calcium_mg = 1100; cf.phosphorus_mg = 900
+    cf.omega3_mg = 600; cf.taurine_mg = 250; cf.condition_tags = "[]"
+
+    svc = MealService(repo)
+    svc._deepseek_lookup = AsyncMock()  # must NOT be called
+
+    cf_repo = AsyncMock(); cf_repo.get_all.return_value = [cf]
+    svc._commercial_repo = cf_repo  # injected lookup source
+
+    res = await svc.lookup_product("Royal Canin Sterilised")
+    assert res is not None
+    assert res.source == "commercial_db"
+    assert res.kcal == 350
+    svc._deepseek_lookup.assert_not_called()

@@ -1,8 +1,11 @@
 import json
 import logging
 from dataclasses import dataclass
-from rapidfuzz import process as fuzz_process, fuzz
+
 from openai import AsyncOpenAI
+from rapidfuzz import fuzz
+from rapidfuzz import process as fuzz_process
+
 from app.config import settings
 from app.models.food_item import FoodItem
 from app.models.stop_food import StopFood
@@ -115,6 +118,7 @@ class MealService:
             api_key=settings.DEEPSEEK_API_KEY,
             base_url="https://api.deepseek.com",
         )
+        self._commercial_repo = None  # set by caller when feature_food_catalog is ON
 
     # ── Public API ──────────────────────────────────────────────────
 
@@ -195,7 +199,33 @@ class MealService:
                 source="db",
                 food_item_id=fi.id,
             )
+
+        cf = await self._lookup_commercial(product_name)
+        if cf:
+            return cf
+
         return await self._deepseek_lookup(product_name)
+
+    async def _lookup_commercial(self, product_name: str) -> FoodLookupResult | None:
+        if self._commercial_repo is None:
+            return None
+        from app.services.commercial_food_service import CommercialFoodService
+        svc = CommercialFoodService(self._commercial_repo)
+        cf = await svc.find_for_lookup(product_name)
+        if cf is None:
+            return None
+        return FoodLookupResult(
+            name=f"{cf.brand} {cf.name}", grams=0,
+            kcal=float(cf.kcal_per_100g),
+            protein_g=float(cf.protein_g),
+            fat_g=float(cf.fat_g),
+            carb_g=float(cf.carb_g),
+            calcium_mg=float(cf.calcium_mg or 0),
+            phosphorus_mg=float(cf.phosphorus_mg or 0),
+            omega3_mg=float(cf.omega3_mg or 0),
+            taurine_mg=float(cf.taurine_mg or 0),
+            source="commercial_db",
+        )
 
     def calculate_grams(self, gap_kcal: float, kcal_per_100g: float) -> float:
         raw = gap_kcal * 0.5 / (kcal_per_100g / 100)
