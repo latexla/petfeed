@@ -48,3 +48,22 @@ def test_rank_prefers_more_matching_axes():
                "breed_size": None, "tags": ["weight_control"]}
     ranked = svc.rank([b, a], filters)
     assert ranked[0].brand == "A"
+
+
+def test_seed_macros_energy_balance():
+    """Each seed row's macros must agree with declared kcal within 15% (Atwater)."""
+    from app.seeds.commercial_foods_seed import FOODS
+    assert len(FOODS) >= 30
+    for row in FOODS:
+        kcal = row["kcal_per_100g"]
+        calc = row["protein_g"] * 4 + row["fat_g"] * 9 + row["carb_g"] * 4
+        assert kcal > 0
+        assert abs(calc - kcal) / kcal <= 0.15, f"{row['brand']} {row['name']}: {calc} vs {kcal}"
+
+
+def test_seed_required_fields_and_vocab():
+    from app.seeds.commercial_foods_seed import FOODS
+    for row in FOODS:
+        assert row["species"] in {"cat", "dog"}
+        assert row["food_type"] in {"dry", "wet"}
+        assert row["life_stage"] in {"junior", "adult", "senior", "all"}
