@@ -1,20 +1,22 @@
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, text
-from app.database import get_db
+
 from app.config import settings
-from app.models.user import User
-from app.models.pet import Pet
-from app.models.feature_flag import FeatureFlag
-from app.models.nutrition_knowledge import NutritionKnowledge
-from app.models.breed_registry import BreedRegistry
+from app.database import get_db
 from app.models.breed_knowledge import BreedKnowledge
+from app.models.breed_registry import BreedRegistry
 from app.models.breed_risk import BreedRisk
-from app.models.stop_food import StopFood
+from app.models.commercial_food import CommercialFood
+from app.models.feature_flag import FeatureFlag
 from app.models.food_category import FoodCategory
 from app.models.food_item import FoodItem
+from app.models.nutrition_knowledge import NutritionKnowledge
+from app.models.pet import Pet
+from app.models.stop_food import StopFood
+from app.models.user import User
 from app.models.user_feedback import UserFeedback
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -122,6 +124,7 @@ async def seeds_page(request: Request, db: AsyncSession = Depends(get_db), msg: 
         "stop_foods":      (await db.execute(select(func.count(StopFood.id)))).scalar(),
         "food_categories": (await db.execute(select(func.count(FoodCategory.id)))).scalar(),
         "food_items":      (await db.execute(select(func.count(FoodItem.id)))).scalar(),
+        "commercial_foods": (await db.execute(select(func.count(CommercialFood.id)))).scalar(),
     }
 
     # Detail data for verification
@@ -157,6 +160,12 @@ async def seeds_page(request: Request, db: AsyncSession = Depends(get_db), msg: 
         .order_by(FoodItem.category, FoodItem.name)
     )).all()
 
+    commercial_foods_list = (await db.execute(
+        select(CommercialFood.brand, CommercialFood.name, CommercialFood.species,
+               CommercialFood.food_type, CommercialFood.life_stage, CommercialFood.kcal_per_100g)
+        .order_by(CommercialFood.species, CommercialFood.brand, CommercialFood.name)
+    )).all()
+
     return templates.TemplateResponse(request, "admin/seeds.html", {
         "counts": counts,
         "msg": msg,
@@ -167,6 +176,7 @@ async def seeds_page(request: Request, db: AsyncSession = Depends(get_db), msg: 
         "stop_foods_list": stop_foods_list,
         "food_cats_list": food_cats_list,
         "food_items_list": food_items_list,
+        "commercial_foods_list": commercial_foods_list,
     })
 
 
@@ -213,7 +223,7 @@ async def seed_breed_knowledge(request: Request, db: AsyncSession = Depends(get_
 async def seed_nutrition_v2(request: Request, db: AsyncSession = Depends(get_db)):
     if not check_auth(request):
         return RedirectResponse("/admin/login")
-    from app.seeds.nutrition_seed_v2 import FOOD_CATEGORIES, BREED_RISKS, STOP_FOODS
+    from app.seeds.nutrition_seed_v2 import BREED_RISKS, FOOD_CATEGORIES, STOP_FOODS
     added = 0
 
     existing_cats = set(
@@ -268,6 +278,52 @@ async def seed_food_items(request: Request, db: AsyncSession = Depends(get_db)):
         await db.commit()
     return RedirectResponse(
         f"/admin/seeds?msg=Продукты:+добавлено+{len(to_add)},+пропущено+{len(ITEMS)-len(to_add)}",
+        status_code=302,
+    )
+
+
+@router.post("/seeds/run/commercial-foods")
+async def seed_commercial_foods(request: Request, db: AsyncSession = Depends(get_db)):
+    if not check_auth(request):
+        return RedirectResponse("/admin/login")
+    import json as _json
+
+    from app.seeds.commercial_foods_seed import FOODS
+    existing = set(
+        (b, n) for b, n in
+        (await db.execute(select(CommercialFood.brand, CommercialFood.name))).all()
+    )
+    to_add = [row for row in FOODS if (row["brand"], row["name"]) not in existing]
+    for row in to_add:
+        db.add(CommercialFood(
+            brand=row["brand"], name=row["name"],
+            name_aliases=_json.dumps(row["aliases"], ensure_ascii=False),
+            species=row["species"], food_type=row["food_type"],
+            life_stage=row["life_stage"], breed_size=row["breed_size"],
+            condition_tags=_json.dumps(row["tags"], ensure_ascii=False),
+            kcal_per_100g=row["kcal_per_100g"], protein_g=row["protein_g"],
+            fat_g=row["fat_g"], carb_g=row["carb_g"],
+            calcium_mg=row.get("calcium_mg"), phosphorus_mg=row.get("phosphorus_mg"),
+            omega3_mg=row.get("omega3_mg"), taurine_mg=row.get("taurine_mg"),
+            source=row.get("source", "manufacturer"), barcode=row.get("barcode"),
+        ))
+
+    # ensure the gating flag row exists
+    flag = (await db.execute(
+        select(FeatureFlag).where(FeatureFlag.key == "feature_food_catalog")
+    )).scalar_one_or_none()
+    if flag is None:
+        db.add(FeatureFlag(
+            key="feature_food_catalog",
+            name="Каталог коммерческих кормов",
+            description="Подбор кормов в боте + данные для конструктора рациона и AI",
+            is_enabled=True,
+        ))
+
+    if to_add or flag is None:
+        await db.commit()
+    return RedirectResponse(
+        f"/admin/seeds?msg=Коммерческие+корма:+добавлено+{len(to_add)},+пропущено+{len(FOODS)-len(to_add)}",
         status_code=302,
     )
 
