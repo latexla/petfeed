@@ -90,6 +90,7 @@ def main_menu_keyboard(pet_name: str = "") -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="Напоминания", callback_data="menu:reminders")],
         [InlineKeyboardButton(text="Обновить вес", callback_data="menu:weight")],
         [InlineKeyboardButton(text="Заказать корм", callback_data="menu:order")],
+        [InlineKeyboardButton(text="🔎 Подобрать корм", callback_data="menu:food_picker")],
         [InlineKeyboardButton(text="Задать вопрос AI", callback_data="menu:ai")],
         [InlineKeyboardButton(text="Профиль питомца", callback_data="menu:pet")],
         [InlineKeyboardButton(text="💬 Обратная связь", callback_data="menu:feedback")],
@@ -233,6 +234,33 @@ def feedback_comment_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Пропустить →", callback_data="fb_skip_comment")],
     ])
+
+
+def food_picker_filters_keyboard(pet_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🍖 Сухой", callback_data=f"fp_type:dry:{pet_id}"),
+         InlineKeyboardButton(text="🥫 Влажный", callback_data=f"fp_type:wet:{pet_id}")],
+        [InlineKeyboardButton(text="Показать все", callback_data=f"fp_type:all:{pet_id}")],
+        [InlineKeyboardButton(text="← Меню", callback_data="meal_to_menu")],
+    ])
+
+
+def food_picker_list_keyboard(items: list[dict], pet_id: int, offset: int) -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton(
+            text=f"{it['brand']} {it['name']} · {it['kcal_per_100g']:.0f} ккал",
+            callback_data=f"fp_card:{it['id']}:{pet_id}")]
+        for it in items
+    ]
+    nav = []
+    if offset > 0:
+        nav.append(InlineKeyboardButton(text="←", callback_data=f"fp_page:{offset-20}:{pet_id}"))
+    if len(items) == 20:
+        nav.append(InlineKeyboardButton(text="→", callback_data=f"fp_page:{offset+20}:{pet_id}"))
+    if nav:
+        rows.append(nav)
+    rows.append([InlineKeyboardButton(text="← Меню", callback_data="meal_to_menu")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def miniapp_keyboard() -> InlineKeyboardMarkup | None:

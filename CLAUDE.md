@@ -45,7 +45,7 @@ Telegram-бот + мобильное приложение для владель�
 ---
 
 ## Структура БД (реализовано)
-`users` → `pets` → `rations`, `feeding_reminders`, `nutrition_knowledge`, `feature_flags`  
+`users` → `pets` → `rations`, `feeding_reminders`, `nutrition_knowledge`, `feature_flags`, `commercial_foods`  
 Ещё в схеме (не реализованы): `weight_history`, `feeding_logs`, `partners`, `products`, `orders`, `ai_requests`
 
 Полная схема: `system_requirements/petfeed_sql.sql`  
@@ -53,10 +53,12 @@ ERD: `system_requirements/petfeed_erd.plantuml`
 
 ---
 
-## Feature Flags (14 флагов)
-MVP включены (ON): `feature_pet_profile`, `feature_nutrition`, `feature_reminders`, `feature_feeding_log`, `feature_weight_tracking`, `feature_ai_assistant`, `feature_orders`, `feature_partner_webhook`, `feature_admin_panel`, `feature_partner_catalog`, `feature_multi_pet`
+## Feature Flags (15 флагов)
+MVP включены (ON): `feature_pet_profile`, `feature_nutrition`, `feature_reminders`, `feature_feeding_log`, `feature_weight_tracking`, `feature_ai_assistant`, `feature_orders`, `feature_partner_webhook`, `feature_admin_panel`, `feature_partner_catalog`, `feature_multi_pet`, `feature_food_catalog`
 
 Фаза 2 (OFF): `feature_food_scanner`, `feature_subscription`, `feature_vet_referral`
+
+Проверка флага в коде: `app.services.feature_flag_service.is_enabled(key, db)` (кэш в Redis, ключ `flag:{key}`, TTL 60 сек). `feature_food_catalog` гейтит каталог коммерческих кормов (API, бот-экран, lookup конструктора, контекст AI).
 
 Полный список: `system_requirements/feature_flags.md`
 
@@ -84,6 +86,7 @@ FSM хранится в Redis, ключ `fsm:{telegram_id}`, TTL 30 минут.
 | `/weight` | — | ⏳ |
 | `/orders` | — | ⏳ |
 | `/ai` | — | ⏳ |
+| `/commercial-foods` | GET (фильтры: species, food_type, life_stage, breed_size, tag, q) | ✅ за флагом `feature_food_catalog` |
 
 Аутентификация: `X-Telegram-Id` (пользователи), `X-Api-Key` (партнёры), `X-Admin-Token` (admin)
 

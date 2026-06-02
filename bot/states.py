@@ -25,3 +25,7 @@ class FeedbackFlow(StatesGroup):
     waiting_rating  = State()
     waiting_feature = State()
     waiting_comment = State()
+
+
+class FoodPicker(StatesGroup):
+    browsing = State()

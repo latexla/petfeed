@@ -2,19 +2,20 @@ import json as _json
 import logging
 from datetime import date as _date
 
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.database import get_db
-from app.repositories.user_repo import UserRepository
-from app.repositories.pet_repo import PetRepository
-from app.repositories.nutrition_repo import NutritionRepository
 from app.repositories.meal_repo import MealRepository
-from app.services.user_service import UserService
-from app.services.pet_service import PetService
+from app.repositories.nutrition_repo import NutritionRepository
+from app.repositories.pet_repo import PetRepository
+from app.repositories.user_repo import UserRepository
+from app.schemas.recommend import DailyAddNamedRequest, RecommendRequest, RecommendResponse
 from app.services.meal_service import MealService
-from app.schemas.recommend import RecommendRequest, RecommendResponse, DailyAddNamedRequest
+from app.services.pet_service import PetService
 from app.services.recommend_service import RecommendService
+from app.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,10 @@ async def add_product(body: AddProductRequest, request: Request,
         raise HTTPException(status_code=400, detail={"error": "no_ration"})
 
     svc = MealService(MealRepository(db))
+    from app.services.feature_flag_service import is_enabled
+    from app.repositories.commercial_food_repo import CommercialFoodRepository
+    if await is_enabled("feature_food_catalog", db):
+        svc._commercial_repo = CommercialFoodRepository(db)
     breed_risks = await NutritionRepository(db).get_breed_risks(pet.breed or "")
     required_micros = svc.get_required_micros(pet.species, breed_risks)
 
@@ -525,6 +530,10 @@ async def recommend_meal(
 
     repo = MealRepository(db)
     meal_svc = MealService(repo)
+    from app.services.feature_flag_service import is_enabled
+    from app.repositories.commercial_food_repo import CommercialFoodRepository
+    if await is_enabled("feature_food_catalog", db):
+        meal_svc._commercial_repo = CommercialFoodRepository(db)
     nutrition_repo = NutritionRepository(db)
     svc = RecommendService(meal_svc, nutrition_repo)
 
